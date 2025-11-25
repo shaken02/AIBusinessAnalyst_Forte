@@ -23,11 +23,12 @@ wheels/
 MANIFEST
 
 # Virtual Environment
-AIForte/
 venv/
 ENV/
 env/
 .venv
+# Старое окружение (если было создано на уровень выше)
+AIForte/
 
 # IDEs and Editors
 .vscode/

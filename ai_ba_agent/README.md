@@ -113,16 +113,16 @@ ai_ba_agent/
 
 2. **Создайте виртуальное окружение:**
    ```bash
-   python3.10 -m venv ../AIForte
+   python3.10 -m venv venv
    ```
-   ⚠️ **Важно**: Виртуальное окружение должно находиться на уровень выше (`../AIForte`), как указано в структуре проекта.
+   Это создаст папку `venv` внутри директории `ai_ba_agent`.
 
 3. **Активируйте виртуальное окружение:**
    ```bash
-   source ../AIForte/bin/activate
+   source venv/bin/activate
    ```
-   - На Windows: `..\AIForte\Scripts\activate`
-   - На Linux/macOS: `source ../AIForte/bin/activate`
+   - На Windows: `venv\Scripts\activate`
+   - На Linux/macOS: `source venv/bin/activate`
 
 4. **Обновите pip:**
    ```bash
@@ -147,7 +147,7 @@ cd AIBusinessAnalyst/ai_ba_agent
 
 ```bash
 cd AIBusinessAnalyst/ai_ba_agent
-source ../AIForte/bin/activate
+source venv/bin/activate
 export PYTHONPATH="${PWD}:${PYTHONPATH:-}"
 export STREAMLIT_BROWSER_GATHER_USAGE_STATS=0
 streamlit run app/main.py --server.headless true --server.port 8501
