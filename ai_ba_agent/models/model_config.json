@@ -1,0 +1,12 @@
+{
+  "provider": "ollama",
+  "model_name": "gemma:latest",
+  "ollama_api_url": "http://localhost:11434/api/generate",
+  "revision": null,
+  "temperature": 0.2,
+  "top_p": 0.9,
+  "max_new_tokens": 2048,
+  "device": "auto",
+  "dtype": "auto",
+  "cache_dir": "./models/cache"
+}

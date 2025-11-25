@@ -1,0 +1,150 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+# lib/ и lib64/ - исключаем только стандартные Python lib, не libs/ проекта
+# lib/
+# lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+AIForte/
+venv/
+ENV/
+env/
+.venv
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+streamlit.log
+logs/
+*.log.*
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.swp
+*.swo
+
+# Hugging Face Token (секретный ключ)
+hf_token.txt
+**/hf_token.txt
+*.token
+**/*.token
+
+# Model cache (большие файлы моделей)
+models/cache/
+ai_ba_agent/models/cache/
+*.safetensors
+*.bin
+*.h5
+*.pt
+*.pth
+*.onnx
+*.tflite
+*.pb
+
+# Test output (папку оставляем, но исключаем содержимое)
+ai_ba_agent/test_data_output/*
+!ai_ba_agent/test_data_output/.gitkeep
+tests/__pycache__/
+.coverage
+.pytest_cache/
+htmlcov/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+*.cache
+
+# Streamlit
+.streamlit/secrets.toml
+.streamlit/config.toml
+
+# PDF cache and session data (не нужно коммитить)
+*.pdf
+!docs/**/*.pdf
+
+# Data files (если есть большие файлы данных)
+*.csv
+*.xlsx
+*.xls
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Documentation builds
+docs/_build/
+docs/.doctrees/
+
+# Package files
+*.whl
+*.tar.gz
+*.zip
+
+# MacOS
+.AppleDouble
+.LSOverride
+Icon
+
+# Windows
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+
+# Project specific
+# Не коммитим тестовые данные изображений (но папку оставляем)
+ai_ba_agent/test_data_output/*.png
+ai_ba_agent/test_data_output/*.jpg
+ai_ba_agent/test_data_output/*.jpeg
+
+# Сохраняем структуру папок, но исключаем файлы
+!ai_ba_agent/test_data_output/.gitkeep
+
