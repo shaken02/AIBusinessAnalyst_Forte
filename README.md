@@ -139,19 +139,23 @@ ai_ba_agent/
 
 ### Способ 1: Использование скрипта (рекомендуется)
 
+После установки зависимостей просто запустите:
+
 ```bash
 cd AIBusinessAnalyst/ai_ba_agent
 ./run.sh
 ```
 
+Скрипт автоматически найдет виртуальное окружение (в `venv` или `../AIForte`) и запустит приложение.
+
 ### Способ 2: Ручной запуск
 
 ```bash
 cd ai_ba_agent
-source venv/bin/activate
+source venv/bin/activate  # или source ../AIForte/bin/activate
 export PYTHONPATH="${PWD}:${PYTHONPATH:-}"
 export STREAMLIT_BROWSER_GATHER_USAGE_STATS=0
-streamlit run app/main.py --server.headless true --server.port 8501
+python -m streamlit run app/main.py --server.headless true --server.port 8501
 ```
 
 ### После запуска
