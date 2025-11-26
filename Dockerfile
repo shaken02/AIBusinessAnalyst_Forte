@@ -5,12 +5,17 @@ FROM python:3.10-slim
 LABEL maintainer="AI Business Analyst Team"
 LABEL description="AI Business Analyst - система автоматической генерации бизнес-документации"
 
-# Устанавливаем системные зависимости и Java 17
-RUN apt-get update && apt-get install -y \
-    openjdk-17-jre-headless \
+# Устанавливаем системные зависимости и Java
+# Используем Java 21, так как Java 17 больше не доступна в репозиториях
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update --fix-missing && \
+    apt-get install -y --no-install-recommends \
+    openjdk-21-jre-headless \
     libharfbuzz0b \
     libfontconfig1 \
     curl \
+    ca-certificates \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Устанавливаем рабочую директорию
