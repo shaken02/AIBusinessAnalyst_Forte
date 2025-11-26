@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  ai-business-analyst:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-business-analyst
+    ports:
+      - "8501:8501"
+    volumes:
+      # Монтируем код для разработки (можно закомментировать в продакшене)
+      - ./ai_ba_agent:/app
+      # Монтируем модели (если используются локальные модели)
+      - ./ai_ba_agent/models:/app/models
+      # Монтируем кэш моделей (опционально)
+      - model_cache:/app/models/cache
+    environment:
+      - PYTHONPATH=/app
+      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=0
+      - STREAMLIT_SERVER_HEADLESS=true
+      - AI_BA_LOG_LEVEL=INFO
+      # URL для Ollama API (для Docker используем host.docker.internal вместо localhost)
+      # На Linux может потребоваться изменить на IP хоста или использовать network_mode: host
+      - AI_BA_OLLAMA_URL=http://host.docker.internal:11434/api/generate
+    # Если Ollama запущен в отдельном контейнере, раскомментируйте:
+    # depends_on:
+    #   - ollama
+    # И добавьте сервис ollama ниже
+    restart: unless-stopped
+    networks:
+      - ai-ba-network
+
+  # Опционально: можно добавить Ollama в Docker
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: ollama
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   networks:
+  #     - ai-ba-network
+
+volumes:
+  model_cache:
+  # ollama_data:  # Раскомментируйте, если используете Ollama в Docker
+
+networks:
+  ai-ba-network:
+    driver: bridge
+

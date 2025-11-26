@@ -82,6 +82,7 @@ def _settings_from_env() -> Dict[str, Any]:
         "AI_BA_MODEL_DEVICE": "device",
         "AI_BA_MODEL_TEMPERATURE": "temperature",
         "AI_BA_MODEL_MAX_NEW_TOKENS": "max_new_tokens",
+        "AI_BA_OLLAMA_URL": "ollama_api_url",
     }
 
     for env_key, field_name in env_map.items():
