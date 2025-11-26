@@ -20,7 +20,12 @@ cd AIBusinessAnalyst
 # 2. Убедитесь, что Ollama запущен (в отдельном терминале)
 ollama serve
 
-# 3. Запустите приложение
+# 3. Запустите приложение (с автоматической очисткой Docker)
+./docker-run.sh
+```
+
+**Или без автоматической очистки:**
+```bash
 docker-compose up --build
 ```
 
@@ -38,7 +43,10 @@ docker-compose down
 ## Полезные команды
 
 ```bash
-# Пересобрать контейнер
+# Запуск с автоматической очисткой (рекомендуется)
+./docker-run.sh
+
+# Пересобрать контейнер (без очистки)
 docker-compose up --build
 
 # Запустить в фоне
@@ -50,8 +58,8 @@ docker-compose logs -f
 # Остановить
 docker-compose down
 
-# Полная очистка
-docker-compose down --rmi all
+# Полная очистка Docker вручную
+docker system prune -af --volumes
 ```
 
 ## Решение проблем
