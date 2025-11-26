@@ -229,15 +229,19 @@ def generate_plantuml(context: str, engine: LLMEngine) -> str:
     
     diagram = '\n'.join(fixed_lines)
     
-    # Ensure we have valid activity diagram structure
-    if 'start' not in diagram:
-        # Try to add start if missing
-        if '@startuml' in diagram:
-            diagram = diagram.replace('@startuml', '@startuml\nstart', 1)
+    # Ensure we have valid diagram structure (only for activity diagrams)
+    # Для других типов диаграмм (sequence, usecase, state, component) не добавляем start/stop
+    is_activity = 'start' in diagram or 'stop' in diagram or ':действие' in diagram.lower()
     
-    if 'stop' not in diagram and '@enduml' in diagram:
-        # Try to add stop before @enduml
-        diagram = diagram.replace('@enduml', 'stop\n@enduml', 1)
+    if is_activity:
+        if 'start' not in diagram:
+            # Try to add start if missing
+            if '@startuml' in diagram:
+                diagram = diagram.replace('@startuml', '@startuml\nstart', 1)
+        
+        if 'stop' not in diagram and '@enduml' in diagram:
+            # Try to add stop before @enduml
+            diagram = diagram.replace('@enduml', 'stop\n@enduml', 1)
     
     # Логируем финальный результат для отладки
     logger.debug("Final PlantUML diagram (first 1000 chars):\n%s", diagram[:1000])

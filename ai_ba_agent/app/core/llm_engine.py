@@ -31,7 +31,21 @@ class LLMEngine:
         return self.ask(prompt)
 
     def generate_plantuml(self, context: str) -> str:
-        prompt = prompt_templates.PLANTUML_TEMPLATE.format(context=context)
+        # Сначала определяем тип диаграммы
+        analysis_prompt = prompt_templates.PLANTUML_DIAGRAM_TYPE_ANALYSIS.format(context=context)
+        diagram_type_raw = self.ask(analysis_prompt).strip().lower()
+        
+        # Извлекаем тип диаграммы (может быть с пояснениями)
+        diagram_type = "activity"  # по умолчанию
+        for dt in ["activity", "sequence", "usecase", "state", "component"]:
+            if dt in diagram_type_raw:
+                diagram_type = dt
+                break
+        
+        logger.info("Selected PlantUML diagram type: %s (from analysis: %s)", diagram_type, diagram_type_raw[:100])
+        
+        # Генерируем диаграмму выбранного типа
+        prompt = prompt_templates.PLANTUML_TEMPLATE.format(context=context, diagram_type=diagram_type)
         return self.ask(prompt)
 
 

@@ -80,12 +80,17 @@ def reset_dialog() -> None:
         del st.session_state[key]
     _init_dialog_manager()
     
-    # Бот пишет сообщение в чат о сбросе (если intelligent режим)
+    # Бот пишет сообщение в чат о сбросе (для обоих режимов)
     mode = st.session_state.get("dialog_mode", "intelligent")
     if mode == "intelligent":
         reset_message = "Вижу, что вы сбросили диалог. Давайте начнем сначала! Расскажите о вашем проекте - начните с описания того, что вы хотите создать."
         st.session_state.chat_history.append({"role": "assistant", "content": reset_message})
         st.session_state.conversation_started = True  # Разговор уже начат после сброса
+    else:
+        # Structured режим - тоже добавляем сообщение
+        reset_message = "Диалог сброшен. Давайте начнем заново! Я задам вам вопросы о вашем проекте."
+        st.session_state.chat_history.append({"role": "assistant", "content": reset_message})
+        st.session_state.conversation_started = False  # В structured режиме разговор начинается с кнопки
 
 
 def enqueue_next_question() -> None:

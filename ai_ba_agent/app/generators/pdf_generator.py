@@ -404,21 +404,29 @@ def _render_table(story: List, table_data: List[List[str]]) -> None:
     data_cell_style = ParagraphStyle(
         'TableCell',
         parent=styles['Normal'],
-        fontSize=10,
+        fontSize=9,  # Немного уменьшили размер шрифта
         textColor=colors.HexColor('#444444'),
         fontName=CYRILLIC_FONT_NAME,
         alignment=0,  # Left
         wordWrap='LTR',  # Enable word wrapping for long text
-        leading=12,
+        leading=11,  # Уменьшили межстрочный интервал
+        spaceAfter=2,  # Добавили небольшой отступ после
     )
     
     # Convert table data to Paragraph objects for proper text wrapping
+    # Ограничиваем длину текста в ячейках, чтобы избежать слишком больших таблиц
+    MAX_CELL_LENGTH = 2000  # Максимальная длина текста в ячейке
     para_data = []
     for row_idx, row in enumerate(table_data):
         para_row = []
         for cell in row:
             # Clean cell text from LLM artifacts
             cleaned_cell = _clean_llm_text(str(cell))
+            
+            # Обрезаем слишком длинный текст
+            if len(cleaned_cell) > MAX_CELL_LENGTH:
+                cleaned_cell = cleaned_cell[:MAX_CELL_LENGTH] + "... (текст обрезан)"
+            
             # Escape HTML special characters
             cleaned_cell_html = _convert_markdown_to_html(cleaned_cell)
             # Use header style for first row, data style for others
@@ -428,9 +436,8 @@ def _render_table(story: List, table_data: List[List[str]]) -> None:
     
     # Create table with calculated column widths
     col_widths = [page_width / num_cols] * num_cols
-    pdf_table = Table(para_data, colWidths=col_widths)
     
-    # Style the table - less bold, better design
+    # Style the table - less bold, better design (определяем ДО использования)
     style = TableStyle([
         # Header row - subtle background
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f5f5f5')),
@@ -448,9 +455,46 @@ def _render_table(story: List, table_data: List[List[str]]) -> None:
         ('RIGHTPADDING', (0, 0), (-1, -1), 4),
     ])
     
-    pdf_table.setStyle(style)
-    story.append(pdf_table)
-    story.append(Spacer(1, 6*mm))
+    # Разбиваем большие таблицы на части (максимум 30 строк за раз)
+    MAX_ROWS_PER_TABLE = 30
+    if len(para_data) > MAX_ROWS_PER_TABLE:
+        # Разбиваем таблицу на части
+        header_row = para_data[0] if para_data else []
+        data_rows = para_data[1:] if len(para_data) > 1 else []
+        
+        for i in range(0, len(data_rows), MAX_ROWS_PER_TABLE):
+            chunk = [header_row] + data_rows[i:i + MAX_ROWS_PER_TABLE]
+            pdf_table = Table(chunk, colWidths=col_widths)
+            pdf_table.setStyle(style)
+            story.append(pdf_table)
+            story.append(Spacer(1, 6*mm))
+        return
+    
+    pdf_table = Table(para_data, colWidths=col_widths)
+    
+    try:
+        pdf_table.setStyle(style)
+        story.append(pdf_table)
+        story.append(Spacer(1, 6*mm))
+    except Exception as e:
+        # Если таблица слишком большая, пытаемся разбить на части или упростить
+        logger.warning(f"Table rendering error: {e}. Attempting to render simplified table.")
+        # Пробуем создать упрощенную таблицу с меньшим количеством данных
+        if len(para_data) > 10:
+            # Берем только первые 10 строк
+            simplified_data = para_data[:10]
+            if len(para_data) > 10:
+                # Добавляем строку с информацией об обрезке
+                info_row = [Paragraph(f"<i>Показаны первые 10 из {len(para_data)} строк</i>", data_cell_style)] * num_cols
+                simplified_data.append(info_row)
+            pdf_table = Table(simplified_data, colWidths=col_widths)
+            pdf_table.setStyle(style)
+            story.append(pdf_table)
+            story.append(Spacer(1, 6*mm))
+        else:
+            # Если даже упрощенная таблица не работает, просто пропускаем
+            story.append(Paragraph("<i>Таблица слишком большая для отображения в PDF</i>", data_cell_style))
+            story.append(Spacer(1, 6*mm))
 
 
 # Global heading counters for document-wide hierarchical numbering
