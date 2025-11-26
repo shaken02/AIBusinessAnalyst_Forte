@@ -5,8 +5,9 @@ uvicorn[standard]>=0.30,<0.31
 pydantic>=2.9,<3
 python-dotenv>=1.0,<2
 
-# Для работы с LLM моделями (Ollama API и опционально Transformers)
+# Для работы с LLM моделями (Ollama API, Gemini API и опционально Transformers)
 requests>=2.32,<3
+google-generativeai>=0.8.0,<1
 transformers==4.57.1
 torch==2.9.1
 accelerate==1.12.0

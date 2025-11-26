@@ -24,7 +24,8 @@ def init_session_state() -> None:
     if "dialog_manager" not in st.session_state:
         _init_dialog_manager()
     if "orchestrator" not in st.session_state:
-        st.session_state.orchestrator = Orchestrator()
+        selected_model = st.session_state.get("selected_gemini_model", "gemini-2.5-flash")
+        st.session_state.orchestrator = Orchestrator(model_name=selected_model)
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
     if "documents" not in st.session_state:
@@ -41,6 +42,8 @@ def init_session_state() -> None:
         st.session_state.analytical_mode = False  # Режим анализа после генерации документов
     if "conversation_started" not in st.session_state:
         st.session_state.conversation_started = False  # Начался ли разговор
+    if "selected_gemini_model" not in st.session_state:
+        st.session_state.selected_gemini_model = "gemini-2.5-flash"  # По умолчанию flash
 
 
 def _init_dialog_manager() -> None:
@@ -49,7 +52,9 @@ def _init_dialog_manager() -> None:
     mode = st.session_state.get("dialog_mode", "intelligent")
     
     if mode == "intelligent":
-        llm_engine = create_engine()
+        # Используем выбранную модель Gemini
+        selected_model = st.session_state.get("selected_gemini_model", "gemini-2.5-flash")
+        llm_engine = create_engine(model_name=selected_model)
         st.session_state.dialog_manager = IntelligentDialogManager(state, llm_engine)
     else:
         st.session_state.dialog_manager = DialogManager(state)
@@ -117,6 +122,26 @@ def render_sidebar(state: ConversationState) -> None:
         _init_dialog_manager()
         st.session_state.greeting_shown = False
         st.rerun()
+    
+    # Gemini model selector (for both modes if gemini provider)
+    if settings.model.provider == "gemini":
+        st.sidebar.divider()
+        selected_model = st.sidebar.selectbox(
+            "Модель Gemini",
+            ["gemini-2.5-flash", "gemini-2.5-pro"],
+            index=0 if st.session_state.get("selected_gemini_model", "gemini-2.5-flash") == "gemini-2.5-flash" else 1,
+            key="gemini_model_selector_sidebar",
+            help="Flash - быстрее и дешевле, Pro - более качественные ответы"
+        )
+        
+        # Update manager and orchestrator if model changed
+        if selected_model != st.session_state.get("selected_gemini_model"):
+            st.session_state.selected_gemini_model = selected_model
+            if mode == "intelligent":
+                _init_dialog_manager()
+            # Пересоздаем orchestrator с новой моделью
+            st.session_state.orchestrator = Orchestrator(model_name=selected_model)
+            st.rerun()
     
     st.sidebar.divider()
     
@@ -309,6 +334,51 @@ def main() -> None:
             border: 3px solid var(--forte-white) !important;
             border-radius: 12px !important;
             padding: 12px !important;
+        }
+        
+        /* Selectbox in sidebar - WHITE background with DARK text for visibility */
+        .stSidebar .stSelectbox > div > div {
+            background-color: var(--forte-white) !important;
+            border: 3px solid var(--forte-white) !important;
+            border-radius: 12px !important;
+        }
+        
+        .stSidebar .stSelectbox select,
+        .stSidebar .stSelectbox > div > div > select,
+        .stSidebar [data-baseweb="select"] {
+            background-color: var(--forte-white) !important;
+            color: var(--forte-dark-pink) !important;
+            border: 3px solid var(--forte-white) !important;
+            border-radius: 12px !important;
+        }
+        
+        .stSidebar .stSelectbox [data-baseweb="select"] > div {
+            background-color: var(--forte-white) !important;
+            color: var(--forte-dark-pink) !important;
+        }
+        
+        .stSidebar .stSelectbox [data-baseweb="select"] span,
+        .stSidebar .stSelectbox [data-baseweb="select"] div,
+        .stSidebar .stSelectbox [data-baseweb="select"] p {
+            color: var(--forte-dark-pink) !important;
+        }
+        
+        /* Selectbox value text - все элементы внутри */
+        .stSidebar [data-baseweb="select"] * {
+            color: var(--forte-dark-pink) !important;
+        }
+        
+        .stSidebar [data-baseweb="select"] [aria-selected="true"],
+        .stSidebar [data-baseweb="select"] div[role="option"],
+        .stSidebar [data-baseweb="select"] > div > div {
+            color: var(--forte-dark-pink) !important;
+            background-color: var(--forte-white) !important;
+        }
+        
+        /* Selectbox input field */
+        .stSidebar [data-baseweb="select"] input {
+            color: var(--forte-dark-pink) !important;
+            background-color: var(--forte-white) !important;
         }
         
         /* Input containers in sidebar - WHITE THICK BORDER */
@@ -617,7 +687,8 @@ def main() -> None:
                     with st.spinner("Анализирую вопрос на основе собранных данных..."):
                         try:
                             # Используем LLM для анализа вопроса на основе собранных данных
-                            llm_engine = create_engine()
+                            selected_model = st.session_state.get("selected_gemini_model", "gemini-2.5-flash")
+                            llm_engine = create_engine(model_name=selected_model)
                             context = state.as_markdown_context()
                             
                             analysis_prompt = f"""Ты — опытный бизнес-аналитик. У тебя есть полная информация о проекте, собранная в ходе диалога с пользователем.
@@ -683,7 +754,8 @@ def main() -> None:
                 with st.spinner("Анализирую вопрос на основе собранных данных..."):
                     try:
                         # Используем LLM для анализа вопроса на основе собранных данных
-                        llm_engine = create_engine()
+                        selected_model = st.session_state.get("selected_gemini_model", "gemini-2.5-flash")
+                        llm_engine = create_engine(model_name=selected_model)
                         context = state.as_markdown_context()
                         
                         analysis_prompt = f"""Ты — опытный бизнес-аналитик. У тебя есть полная информация о проекте, собранная в ходе диалога с пользователем.
@@ -766,6 +838,10 @@ def main() -> None:
                                 return f"{minutes} мин {seconds} сек"
                             else:
                                 return f"{seconds} сек"
+                        
+                        # Обновляем orchestrator с текущей выбранной моделью
+                        selected_model = st.session_state.get("selected_gemini_model", "gemini-2.5-flash")
+                        orchestrator = Orchestrator(model_name=selected_model)
                         
                         # Показываем спиннер и запускаем генерацию
                         # В Streamlit сложно обновлять UI во время блокирующей операции,

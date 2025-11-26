@@ -37,8 +37,8 @@ class DocumentBundle:
 
 
 class Orchestrator:
-    def __init__(self, engine: Optional[LLMEngine] = None):
-        self.engine = engine or create_engine()
+    def __init__(self, engine: Optional[LLMEngine] = None, model_name: Optional[str] = None):
+        self.engine = engine or create_engine(model_name=model_name)
 
     def is_ready(self, state: ConversationState) -> bool:
         return state.is_complete()

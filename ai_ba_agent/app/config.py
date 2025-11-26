@@ -8,9 +8,15 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, Literal, Optional
 
+from dotenv import load_dotenv
 from pydantic import BaseModel, Field, validator
 
+# Load .env file if it exists
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+ENV_PATH = PROJECT_ROOT / ".env"
+if ENV_PATH.exists():
+    load_dotenv(ENV_PATH)
+
 MODEL_CONFIG_PATH = PROJECT_ROOT / "models" / "model_config.json"
 
 
@@ -26,13 +32,15 @@ class AppSettings(BaseModel):
 class ModelSettings(BaseModel):
     """Runtime configuration for the selected LLM backend."""
 
-    provider: Literal["transformers", "ollama", "mlx", "llama.cpp"] = "ollama"
+    provider: Literal["transformers", "ollama", "mlx", "llama.cpp", "gemini"] = "ollama"
     model_name: str = "gemma:latest"
     ollama_api_url: str = "http://localhost:11434/api/generate"
+    gemini_api_key: Optional[str] = None
+    gemini_model_name: str = "gemini-2.5-flash"
     revision: Optional[str] = None
     temperature: float = Field(0.2, ge=0.0, le=1.0)
     top_p: float = Field(0.9, gt=0.0, le=1.0)
-    max_new_tokens: int = Field(512, ge=32, le=2048)
+    max_new_tokens: int = Field(512, ge=32, le=8192)
     device: str = "auto"
     dtype: Literal["auto", "float32", "bfloat16", "float16"] = "auto"
     cache_dir: Path = PROJECT_ROOT / "models" / "cache"
@@ -83,6 +91,7 @@ def _settings_from_env() -> Dict[str, Any]:
         "AI_BA_MODEL_TEMPERATURE": "temperature",
         "AI_BA_MODEL_MAX_NEW_TOKENS": "max_new_tokens",
         "AI_BA_OLLAMA_URL": "ollama_api_url",
+        "AI_BA_GEMINI_API_KEY": "gemini_api_key",
     }
 
     for env_key, field_name in env_map.items():
@@ -113,9 +122,18 @@ def get_settings() -> Settings:
     file_overrides = {"model": _load_model_config_from_disk()} if MODEL_CONFIG_PATH.exists() else {}
     env_overrides = _settings_from_env()
 
+    # Правильно объединяем вложенные словари
     merged: Dict[str, Any] = {}
     merged.update(file_overrides)
-    merged.update(env_overrides)
+    
+    # Объединяем env_overrides, но не перезаписываем полностью вложенные словари
+    for key, value in env_overrides.items():
+        if key in merged and isinstance(merged[key], dict) and isinstance(value, dict):
+            # Объединяем вложенные словари
+            merged[key] = {**merged[key], **value}
+        else:
+            # Обычное обновление для не-словарей
+            merged[key] = value
 
     return Settings(**merged)
 
