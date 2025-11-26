@@ -26,9 +26,12 @@ class AppSettings(BaseModel):
 class ModelSettings(BaseModel):
     """Runtime configuration for the selected LLM backend."""
 
-    provider: Literal["transformers", "ollama", "mlx", "llama.cpp"] = "ollama"
+    provider: Literal["transformers", "ollama", "mlx", "llama.cpp", "gemini"] = "ollama"
     model_name: str = "gemma:latest"
     ollama_api_url: str = "http://localhost:11434/api/generate"
+    gemini_api_key: Optional[str] = Field(
+        default_factory=lambda: os.getenv("AI_BA_GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    )
     revision: Optional[str] = None
     temperature: float = Field(0.2, ge=0.0, le=1.0)
     top_p: float = Field(0.9, gt=0.0, le=1.0)
@@ -82,7 +85,12 @@ def _settings_from_env() -> Dict[str, Any]:
         "AI_BA_MODEL_DEVICE": "device",
         "AI_BA_MODEL_TEMPERATURE": "temperature",
         "AI_BA_MODEL_MAX_NEW_TOKENS": "max_new_tokens",
+<<<<<<< Updated upstream
         "AI_BA_OLLAMA_URL": "ollama_api_url",
+=======
+        "AI_BA_GEMINI_API_KEY": "gemini_api_key",
+        "GOOGLE_API_KEY": "gemini_api_key",
+>>>>>>> Stashed changes
     }
 
     for env_key, field_name in env_map.items():

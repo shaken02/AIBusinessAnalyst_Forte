@@ -12,6 +12,7 @@ torch==2.9.1
 accelerate==1.12.0
 sentencepiece==0.2.1
 huggingface-hub==0.36.0
+google-generativeai==0.8.3
 
 # Для генерации PDF документов
 reportlab>=4.0,<5

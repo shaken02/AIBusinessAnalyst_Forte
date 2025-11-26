@@ -19,5 +19,17 @@ fi
 export PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}"
 export STREAMLIT_BROWSER_GATHER_USAGE_STATS=0
 
+# Choose the right python inside the venv for Unix/Windows layouts
+if [ -x "${VENV_PATH}/bin/python" ]; then
+  PYTHON="${VENV_PATH}/bin/python"
+elif [ -x "${VENV_PATH}/Scripts/python" ]; then
+  PYTHON="${VENV_PATH}/Scripts/python"
+elif [ -x "${VENV_PATH}/Scripts/python.exe" ]; then
+  PYTHON="${VENV_PATH}/Scripts/python.exe"
+else
+  echo "Python executable not found in virtualenv at ${VENV_PATH}" >&2
+  exit 1
+fi
+
 cd "${PROJECT_ROOT}"
-exec "${VENV_PATH}/bin/python" -m streamlit run app/main.py --server.headless true
+exec "${PYTHON}" -m streamlit run app/main.py --server.headless true

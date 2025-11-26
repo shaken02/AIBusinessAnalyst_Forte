@@ -59,6 +59,8 @@ def render_plantuml_to_png(plantuml_code: str) -> Optional[bytes]:
         # Find Java
         java_path = None
         java_paths_to_check = [
+            # Respect explicit JAVA_HOME first
+            os.path.join(os.getenv("JAVA_HOME"), "bin", "java") if os.getenv("JAVA_HOME") else None,
             '/opt/homebrew/opt/openjdk@17/bin/java',
             '/opt/homebrew/opt/openjdk@11/bin/java',
             '/opt/homebrew/bin/java',
@@ -67,7 +69,7 @@ def render_plantuml_to_png(plantuml_code: str) -> Optional[bytes]:
         ]
         
         for path in java_paths_to_check:
-            if os.path.exists(path):
+            if path and os.path.exists(path):
                 java_path = path
                 logger.info(f"Found Java at: {java_path}")
                 break

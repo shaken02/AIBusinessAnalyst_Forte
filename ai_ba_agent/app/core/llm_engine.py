@@ -108,6 +108,7 @@ class OllamaEngine(LLMEngine):
             "top_p": model_cfg.top_p,
             "num_predict": model_cfg.max_new_tokens,
         }
+        self._fallback_engine = MockLLMEngine(model_name=self.model_name)
         logger.info("Initialized Ollama engine for model %s at %s", self.model_name, self.api_url)
 
     def ask(self, prompt: str) -> str:
@@ -123,8 +124,31 @@ class OllamaEngine(LLMEngine):
             result = response.json()
             return result.get("response", "").strip()
         except requests.exceptions.RequestException as exc:
-            logger.error("Ollama API request failed: %s", exc)
-            raise RuntimeError(f"Ollama API error: {exc}") from exc
+            logger.warning("Ollama API unavailable, using mock engine: %s", exc)
+            return self._fallback_engine.ask(prompt)
+
+
+class GeminiEngine(LLMEngine):
+    """Runs inference via Google Gemini API."""
+
+    def __init__(self) -> None:
+        model_cfg = settings.model
+        if not model_cfg.gemini_api_key:
+            raise RuntimeError("Gemini API key is missing; set AI_BA_GEMINI_API_KEY or GOOGLE_API_KEY")
+
+        import google.generativeai as genai
+
+        genai.configure(api_key=model_cfg.gemini_api_key)
+        self.model = genai.GenerativeModel(model_cfg.model_name)
+        logger.info("Initialized Gemini engine for model %s", model_cfg.model_name)
+
+    def ask(self, prompt: str) -> str:
+        try:
+            response = self.model.generate_content(prompt)
+            return (response.text or "").strip()
+        except Exception as exc:  # pragma: no cover - network call
+            logger.error("Gemini API request failed: %s", exc)
+            raise RuntimeError(f"Gemini API error: {exc}") from exc
 
 
 def create_engine() -> LLMEngine:
@@ -141,7 +165,20 @@ def create_engine() -> LLMEngine:
         except Exception as exc:  # pragma: no cover - fallback
             logger.error("Failed to init transformers engine: %s", exc)
             return MockLLMEngine()
+    if provider == "gemini":
+        try:
+            return GeminiEngine()
+        except Exception as exc:  # pragma: no cover - fallback
+            logger.error("Failed to init Gemini engine: %s", exc)
+            return MockLLMEngine()
     return MockLLMEngine()
 
 
-__all__ = ["LLMEngine", "MockLLMEngine", "TransformersEngine", "OllamaEngine", "create_engine"]
+__all__ = [
+    "LLMEngine",
+    "MockLLMEngine",
+    "TransformersEngine",
+    "OllamaEngine",
+    "GeminiEngine",
+    "create_engine",
+]
