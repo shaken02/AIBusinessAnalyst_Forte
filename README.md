@@ -12,7 +12,7 @@
 - **PlantUML диаграммы** — детальные activity диаграммы процессов
 - **PDF документ** — объединенный PDF со всеми документами
 
-Система использует LLM (Gemma через Ollama) для понимания контекста, извлечения информации и генерации документации на русском языке.
+Система использует LLM (Google Gemini через API) для понимания контекста, извлечения информации и генерации документации на русском языке.
 
 ##  Основные возможности
 
@@ -33,7 +33,7 @@ ai_ba_agent/
 │   ├── core/
 │   │   ├── intelligent_dialog_manager.py  # Умный диалог с ИИ
 │   │   ├── dialog_manager.py            # Структурированный диалог
-│   │   ├── llm_engine.py                # Движок для работы с LLM (Ollama/Transformers)
+│   │   ├── llm_engine.py                # Движок для работы с LLM (Gemini API)
 │   │   ├── orchestrator.py              # Координация генерации документов
 │   │   ├── prompt_templates.py          # Шаблоны промптов для LLM
 │   │   └── templates/                   # Markdown шаблоны документов
@@ -70,22 +70,16 @@ ai_ba_agent/
    python3 --version  # Должно быть 3.10 или выше
    ```
 
-2. **Ollama** (для работы с LLM моделью)
-   - Скачать с [ollama.ai](https://ollama.ai)
-   - Установить и запустить Ollama сервер
-   - Скачать модель Gemma (текущая модель по умолчанию, ~5GB):
-     ```bash
-     ollama pull gemma:latest
-     ```
-   - Проверить, что модель установлена:
-     ```bash
-     ollama list
-     ```
-   - **Текущая модель**: `gemma:latest` (Gemma 2B/7B, ~5GB)
-   - **Альтернативные модели**:
-     - `qwen2.5:14b` — более мощная модель (~8.5GB)
-     - `qwen2.5:7b` — средний вариант (~4.7GB)
-     - `llama3.1:8b` — популярная альтернатива
+2. **Google Gemini API Key** (для работы с LLM моделью)
+   - Получите API ключ от Google Gemini:
+     1. Перейдите на [Google AI Studio](https://makersuite.google.com/app/apikey)
+     2. Войдите в свой Google аккаунт
+     3. Создайте новый API ключ
+     4. Скопируйте ключ (он понадобится для настройки)
+   - **Важно**: Каждый пользователь должен использовать свой собственный API ключ
+   - **Доступные модели Gemini**:
+     - `gemini-2.5-flash` — быстрая модель (по умолчанию)
+     - `gemini-2.5-pro` — более мощная модель для сложных задач
 
 3. **Java 21+** (ОБЯЗАТЕЛЬНО для рендеринга PlantUML диаграмм)
    - На macOS с Homebrew:
@@ -143,6 +137,23 @@ ai_ba_agent/
    ```bash
    pip install -r requirements.txt
    ```
+
+6. **Настройте Gemini API ключ:**
+   
+   Создайте файл `.env` в корне проекта `ai_ba_agent/`:
+   ```bash
+   cd ai_ba_agent
+   touch .env
+   ```
+   
+   Добавьте в файл `.env` ваш API ключ:
+   ```
+   AI_BA_GEMINI_API_KEY=ваш_api_ключ_здесь
+   ```
+   
+   **Важно**: 
+   - Не коммитьте файл `.env` в репозиторий (он уже в `.gitignore`)
+   - Каждый пользователь должен создать свой собственный `.env` файл с собственным API ключом
 
 ##  Запуск приложения
 
@@ -248,29 +259,40 @@ python -m streamlit run app/main.py --server.headless true --server.port 8501
 
 ```json
 {
-  "provider": "ollama",
-  "model_name": "gemma:latest",
-  "ollama_api_url": "http://localhost:11434/api/generate",
+  "provider": "gemini",
+  "model_name": "gemini-2.5-flash",
+  "gemini_model_name": "gemini-2.5-flash",
   "temperature": 0.2,
   "top_p": 0.9,
-  "max_new_tokens": 2048
+  "max_new_tokens": 8192
 }
 ```
 
-**Доступные модели Ollama:**
-- `gemma:latest` (текущая, ~5GB)
-- `qwen2.5:14b` (более мощная, ~8.5GB)
-- `llama3.1:8b` (альтернатива)
+**Доступные модели Gemini:**
+- `gemini-2.5-flash` — быстрая модель (по умолчанию, рекомендуется)
+- `gemini-2.5-pro` — более мощная модель для сложных задач
+
+**Важно**: API ключ настраивается через переменную окружения `AI_BA_GEMINI_API_KEY` в файле `.env`, а не в `model_config.json`. Это позволяет каждому пользователю использовать свой собственный ключ.
 
 Для смены модели:
-1. Убедитесь, что модель скачана: `ollama pull <model_name>`
-2. Обновите `model_name` в `models/model_config.json`
+1. Обновите `gemini_model_name` в `models/model_config.json`
+2. Или выберите модель в интерфейсе приложения (в сайдбаре)
 3. Перезапустите приложение
 
 ### Переменные окружения
 
+Создайте файл `.env` в корне проекта `ai_ba_agent/` со следующими переменными:
+
+- `AI_BA_GEMINI_API_KEY` — **ОБЯЗАТЕЛЬНО**: API ключ от Google Gemini (получите на [Google AI Studio](https://makersuite.google.com/app/apikey))
 - `AI_BA_LOG_LEVEL` — уровень логирования (DEBUG, INFO, WARNING, ERROR), по умолчанию INFO
 - `STREAMLIT_BROWSER_GATHER_USAGE_STATS` — статистика использования Streamlit (0 = отключено)
+
+**Пример файла `.env`:**
+```
+AI_BA_GEMINI_API_KEY=ваш_api_ключ_здесь
+AI_BA_LOG_LEVEL=INFO
+STREAMLIT_BROWSER_GATHER_USAGE_STATS=0
+```
 
 ##  Решение проблем
 
@@ -279,13 +301,14 @@ python -m streamlit run app/main.py --server.headless true --server.port 8501
 - **Проверьте Python версию**: Должна быть 3.10+
 - **Проверьте виртуальное окружение**: Должно быть активировано
 - **Проверьте зависимости**: `pip install -r requirements.txt`
-- **Проверьте Ollama**: Должен быть запущен (`ollama serve` или автоматически)
+- **Проверьте файл `.env`**: Должен существовать в `ai_ba_agent/` и содержать `AI_BA_GEMINI_API_KEY`
 
 ### Модель не отвечает
 
-- **Проверьте Ollama**: `ollama list` — модель должна быть в списке
-- **Проверьте доступность API**: `curl http://localhost:11434/api/generate`
-- **Проверьте модель в config**: Должна совпадать с установленной
+- **Проверьте API ключ**: Убедитесь, что `AI_BA_GEMINI_API_KEY` правильно установлен в файле `.env`
+- **Проверьте доступность API**: Убедитесь, что у вас есть интернет-соединение для доступа к Gemini API
+- **Проверьте модель в config**: Должна быть `gemini-2.5-flash` или `gemini-2.5-pro`
+- **Проверьте лимиты API**: Убедитесь, что не превышены лимиты запросов к Gemini API
 
 ### PlantUML не генерируется
 
@@ -330,7 +353,7 @@ python -m streamlit run app/main.py --server.headless true --server.port 8501
 
 - **Frontend**: Streamlit (веб-интерфейс)
 - **Backend**: Python 3.10+
-- **LLM Engine**: Ollama (локальный) или Transformers (опционально)
+- **LLM Engine**: Google Gemini API (через API ключ)
 - **PDF Generation**: ReportLab
 - **Diagram Rendering**: PlantUML через Java
 
@@ -344,4 +367,7 @@ python -m streamlit run app/main.py --server.headless true --server.port 8501
 
 ---
 
-**Важно**: Убедитесь, что Ollama сервер запущен перед использованием приложения. Модель Gemma занимает ~5GB дискового пространства.
+**Важно**: 
+- Убедитесь, что файл `.env` создан и содержит ваш `AI_BA_GEMINI_API_KEY`
+- Каждый пользователь должен использовать свой собственный API ключ от Google Gemini
+- Получите API ключ на [Google AI Studio](https://makersuite.google.com/app/apikey)
