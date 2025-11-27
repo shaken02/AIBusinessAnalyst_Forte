@@ -146,3 +146,30 @@ def reset_password(email):
     print(f"New password for {email}: {new_password}")
     return True
 
+
+def deserialize_data(data_string):
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: небезопасная десериализация
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: использование pickle с пользовательским вводом
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: может привести к RCE через pickle
+    import pickle
+    data = pickle.loads(data_string.encode())
+    return data
+
+
+def generate_api_key(user_id):
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: использование небезопасного генератора случайных чисел
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: слабый алгоритм генерации ключа
+    import random
+    api_key = str(random.randint(100000, 999999))
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: сохранение ключа в открытом виде
+    with open(f"/tmp/api_key_{user_id}.txt", "w") as f:
+        f.write(api_key)
+    return api_key
+
+
+def check_permissions(user_id, resource_id):
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: нет проверки прав доступа
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: любой пользователь может получить доступ к любому ресурсу
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: отсутствие авторизации
+    return True  # Всегда разрешает доступ
+
