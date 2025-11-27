@@ -2,6 +2,7 @@
 
 import asyncio
 import sys
+import time
 from pathlib import Path
 from typing import Any, Dict
 
@@ -31,6 +32,8 @@ review_engine = ReviewEngine()
 
 # Кэш для отслеживания уже обработанных MR (защита от дубликатов)
 processed_mr_cache: Dict[str, str] = {}  # {mr_key: last_comment_hash}
+diff_hash_cache: Dict[str, str] = {}  # {mr_key: last_diff_hash} - для проверки изменений diff
+push_review_cache: Dict[str, Dict[str, Any]] = {}  # {f"{project_id}:{branch}": {"review_result": ..., "comment": ..., "diff_hash": ...}}
 
 
 @app.get("/")
@@ -115,7 +118,15 @@ async def gitlab_webhook(
         # Парсим JSON
         payload: Dict[str, Any] = await request.json()
         object_kind = payload.get("object_kind")
-        print(f"[WEBHOOK] Payload object_kind: {object_kind}")
+        print(f"[WEBHOOK] Received {object_kind} event from {request.client.host}")
+        
+        # ИГНОРИРУЕМ комментарии (note) - они не требуют обработки
+        if object_kind == "note":
+            print(f"[INFO] Ignoring note event (comment posted)")
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={"message": "Note event ignored"}
+            )
         
         # Извлекаем данные о MR или Push
         mr_data = extract_mr_data(payload)
@@ -132,8 +143,18 @@ async def gitlab_webhook(
                 )
             
             action = mr_data.get("action")
+            print(f"[WEBHOOK] MR action: '{action}'")
+            
+            # ИГНОРИРУЕМ action 'approved' - это мы сами одобрили, не нужно обрабатывать снова
+            if action == "approved":
+                print(f"[INFO] Skipping MR action 'approved' (we approved it ourselves)")
+                return JSONResponse(
+                    status_code=status.HTTP_200_OK,
+                    content={"message": "Approved action ignored"}
+                )
+            
             if action not in ["open", "update", "reopen"]:
-                print(f"[INFO] Skipping MR action '{action}'")
+                print(f"[INFO] Skipping MR action '{action}' (only processing: open, update, reopen)")
                 return JSONResponse(
                     status_code=status.HTTP_200_OK,
                     content={"message": f"Action '{action}' not processed"}
@@ -187,19 +208,166 @@ async def process_mr_review(mr_data: Dict[str, Any]):
         project_id = str(mr_data["project_id"])
         mr_iid = mr_data["mr_iid"]
         cache_key = _get_mr_cache_key(project_id, mr_iid)
+        source_branch = mr_data.get("source_branch", "")
+        action = mr_data.get("action", "")
         
         print(f"[INFO] ===== STARTING MR REVIEW #{mr_iid} =====")
         print(f"[INFO] Project: {project_id}, MR IID: {mr_iid}")
         print(f"[INFO] Title: {mr_data.get('mr_title', 'N/A')[:50]}...")
         
-        # Получаем информацию о MR
-        print(f"[INFO] [1/5] Fetching MR info from GitLab...")
-        mr_info = gitlab_client.get_mr_info(project_id, mr_iid)
-        
-        # Получаем изменения (diff)
-        print(f"[INFO] [2/5] Fetching MR changes (diff) from GitLab...")
+        # Получаем изменения (diff) - сначала получаем diff для проверки хеша
+        print(f"[INFO] [1/5] Fetching MR changes (diff) from GitLab...")
         mr_changes = gitlab_client.get_mr_changes(project_id, mr_iid)
         diff = mr_changes.get("changes", [])
+        
+        if not diff:
+            print(f"[WARNING] No file changes to analyze, skipping review")
+            return
+        
+        # Быстро вычисляем хеш diff для проверки
+        import hashlib
+        diff_content_for_hash = []
+        for file_change in diff:
+            file_diff_content = file_change.get("diff", "")
+            if file_diff_content and file_diff_content.strip():
+                diff_content_for_hash.append(file_diff_content)
+        
+        if not diff_content_for_hash:
+            print(f"[WARNING] No file changes to analyze, skipping review")
+            return
+        
+        # Вычисляем хеш только из содержимого diff (без форматирования)
+        diff_hash_string = "\n".join(diff_content_for_hash)
+        current_diff_hash = hashlib.md5(diff_hash_string.encode()).hexdigest()[:8]
+        print(f"[INFO] Computed diff hash: {current_diff_hash}")
+        
+        # Сначала проверяем, не обрабатывали ли мы уже этот diff
+        cached_diff_hash = diff_hash_cache.get(cache_key)
+        if cached_diff_hash:
+            print(f"[INFO] Found cached diff hash: {cached_diff_hash}")
+            if cached_diff_hash == current_diff_hash:
+                print(f"[INFO] Diff unchanged (hash: {current_diff_hash}), skipping review")
+                print(f"[INFO] ===== SKIPPED MR REVIEW #{mr_iid} (no changes) =====")
+                return
+            else:
+                print(f"[INFO] Diff changed (cached: {cached_diff_hash}, current: {current_diff_hash}), will analyze")
+        else:
+            print(f"[INFO] No cached diff hash found, will analyze")
+        
+        # Получаем информацию о MR (только если diff изменился)
+        print(f"[INFO] [2/5] Fetching MR info from GitLab...")
+        mr_info = gitlab_client.get_mr_info(project_id, mr_iid)
+        
+        # Форматируем diff для дальнейшей обработки
+        all_diffs_text_for_hash = []
+        for file_change in diff:
+            file_path = file_change.get("new_path", file_change.get("old_path", "unknown"))
+            file_diff_content = file_change.get("diff", "")
+            if file_diff_content and file_diff_content.strip():
+                all_diffs_text_for_hash.append(f"=== Файл: {file_path} ===")
+                all_diffs_text_for_hash.append(file_diff_content)
+                all_diffs_text_for_hash.append("")
+        
+        all_diffs_combined_for_hash = "\n".join(all_diffs_text_for_hash)
+        
+        # Проверяем, есть ли сохраненный анализ от push для этой ветки
+        push_cache_key = f"{project_id}:{source_branch}"
+        if action == "open" and push_cache_key in push_review_cache:
+            print(f"[INFO] Found cached push review for branch '{source_branch}', using it...")
+            cached_review = push_review_cache[push_cache_key]
+            cached_diff_hash = cached_review.get("diff_hash")
+            
+            # Проверяем, что diff совпадает (используем уже вычисленный хеш)
+            print(f"[INFO] Comparing diff hashes - cached: {cached_diff_hash}, current: {current_diff_hash}")
+            if cached_diff_hash == current_diff_hash:
+                print(f"[INFO] Using cached review (diff hash matches: {current_diff_hash})")
+                # Используем сохраненный результат
+                review_result = cached_review["review_result"]
+                comment = cached_review["comment"]
+                comment_hash = cached_review["comment_hash"]
+                
+                # Пропускаем анализ через LLM, сразу публикуем
+                print(f"[INFO] [3/5] Skipping Gemini analysis (using cached result)")
+                
+                # Определяем общий вердикт
+                files_data = review_result.files
+                if files_data:
+                    verdicts = [f.get("verdict", "CHANGES_REQUESTED") for f in files_data]
+                    if all(v == "APPROVE" for v in verdicts):
+                        overall_verdict = "APPROVE"
+                    elif any(v == "REJECT" for v in verdicts):
+                        overall_verdict = "REJECT"
+                    else:
+                        overall_verdict = "CHANGES_REQUESTED"
+                else:
+                    overall_verdict = "CHANGES_REQUESTED"
+                
+                print(f"[INFO] Overall verdict: {overall_verdict} (from cached review)")
+                
+                # ЗАЩИТА ОТ ДУБЛИКАТОВ: проверяем был ли уже такой комментарий
+                if _has_recent_ai_comment(project_id, mr_iid, comment_hash):
+                    print(f"[INFO] Skipping duplicate comment for MR #{mr_iid} (same comment already exists)")
+                    print(f"[INFO] ===== SKIPPED MR REVIEW #{mr_iid} (duplicate) =====")
+                    # Удаляем из push кэша, так как уже использовали
+                    if push_cache_key in push_review_cache:
+                        del push_review_cache[push_cache_key]
+                    return
+                
+                # Публикуем комментарий
+                print(f"[INFO] [4/5] Posting cached comment to GitLab MR #{mr_iid}...")
+                gitlab_client.post_mr_comment(project_id=project_id, mr_iid=mr_iid, body=comment)
+                print(f"[INFO] [4/5] ✓ Comment posted successfully")
+                
+                # Обновляем лейблы
+                print(f"[INFO] [5/5] Updating MR labels and merge status...")
+                labels = []
+                if overall_verdict == "APPROVE":
+                    labels = ["ai-reviewed", "ready-for-merge"]
+                    try:
+                        gitlab_client.unblock_merge(project_id, mr_iid)
+                        gitlab_client.approve_mr(project_id, mr_iid)
+                        print(f"[INFO] [5/5] ✓ MR #{mr_iid} approved and merge unblocked")
+                    except Exception as e:
+                        print(f"[WARNING] Failed to approve/unblock MR: {e}")
+                elif overall_verdict == "CHANGES_REQUESTED":
+                    labels = ["ai-reviewed", "changes-requested"]
+                    try:
+                        gitlab_client.block_merge(project_id, mr_iid)
+                        print(f"[INFO] [5/5] ✓ MR #{mr_iid} merge blocked - changes requested")
+                    except Exception as e:
+                        print(f"[WARNING] Failed to block MR: {e}")
+                elif overall_verdict == "REJECT":
+                    labels = ["ai-reviewed", "rejected"]
+                    try:
+                        gitlab_client.block_merge(project_id, mr_iid)
+                        print(f"[INFO] [5/5] ✓ MR #{mr_iid} merge blocked - rejected")
+                    except Exception as e:
+                        print(f"[WARNING] Failed to block MR: {e}")
+                
+                if labels:
+                    current_labels = mr_info.get("labels", [])
+                    all_labels = list(set(current_labels + labels))
+                    gitlab_client.update_mr_labels(project_id, mr_iid, all_labels)
+                    print(f"[INFO] [5/5] ✓ Labels updated: {', '.join(labels)}")
+                
+                # Сохраняем в кэш
+                processed_mr_cache[cache_key] = comment_hash
+                diff_hash_cache[cache_key] = current_diff_hash
+                
+                # Удаляем из push кэша, так как уже использовали
+                del push_review_cache[push_cache_key]
+                
+                print(f"[INFO] ===== COMPLETED MR REVIEW #{mr_iid} (from cache) =====")
+                print(f"[INFO] ✓ Анализ завершен (использован кэш от push)")
+                print(f"[INFO] ✓ Комментарий опубликован в GitLab")
+                print(f"[INFO] ✓ Лейблы обновлены")
+                print(f"[INFO] ✓ Статус merge: {'разблокирован' if overall_verdict == 'APPROVE' else 'заблокирован'}")
+                print(f"[INFO] ========================================")
+                print(f"[INFO] Готов к следующему запросу. Ожидание...")
+                print(f"[INFO] ========================================")
+                return
+            else:
+                print(f"[INFO] Cached review diff hash mismatch, will do fresh analysis")
         
         # Подсчитываем файлы
         num_files = len(diff)
@@ -226,6 +394,16 @@ async def process_mr_review(mr_data: Dict[str, Any]):
             return
         
         all_diffs_combined = "\n".join(all_diffs_text)
+        
+        # Проверяем, изменился ли diff (хеш diff) - используем уже вычисленный хеш
+        # НЕ сохраняем diff_hash здесь - сохраним только после успешного анализа и публикации
+        diff_hash = current_diff_hash
+        if cache_key in diff_hash_cache and diff_hash_cache[cache_key] == diff_hash:
+            print(f"[INFO] Diff unchanged (hash: {diff_hash}), skipping review")
+            print(f"[INFO] ===== SKIPPED MR REVIEW #{mr_iid} (no changes) =====")
+            return
+        
+        print(f"[INFO] Diff hash: {diff_hash} (will process)")
         
         # Анализируем все файлы одним запросом через LLM
         print(f"[INFO] [3/5] Analyzing {num_files} file(s) in one request...")
@@ -266,9 +444,11 @@ async def process_mr_review(mr_data: Dict[str, Any]):
             print(f"[INFO] ===== SKIPPED MR REVIEW #{mr_iid} (duplicate) =====")
             return
         
-        # Сохраняем в кэш
+        # Сохраняем в кэш (ПЕРЕД публикацией, чтобы избежать дубликатов)
         cache_key = _get_mr_cache_key(project_id, mr_iid)
         processed_mr_cache[cache_key] = comment_hash
+        diff_hash_cache[cache_key] = current_diff_hash  # Сохраняем diff_hash после анализа
+        print(f"[INFO] Saved diff hash to cache: {current_diff_hash} for MR #{mr_iid}")
         
         # Отправляем комментарий в GitLab
         print(f"[INFO] [4/5] Posting comment to GitLab MR #{mr_iid}...")
@@ -312,7 +492,13 @@ async def process_mr_review(mr_data: Dict[str, Any]):
             print(f"[INFO] [5/5] ✓ Labels updated: {', '.join(labels)}")
         
         print(f"[INFO] ===== COMPLETED MR REVIEW #{mr_iid} =====")
-        print(f"[INFO] Ready for next request. Waiting...")
+        print(f"[INFO] ✓ Анализ завершен успешно")
+        print(f"[INFO] ✓ Комментарий опубликован в GitLab")
+        print(f"[INFO] ✓ Лейблы обновлены")
+        print(f"[INFO] ✓ Статус merge: {'разблокирован' if overall_verdict == 'APPROVE' else 'заблокирован'}")
+        print(f"[INFO] ========================================")
+        print(f"[INFO] Готов к следующему запросу. Ожидание...")
+        print(f"[INFO] ========================================")
     
     except Exception as e:
         import traceback
@@ -339,23 +525,58 @@ async def process_push_review(push_data: Dict[str, Any]):
         
         # Получаем diff
         try:
-            diff_text = gitlab_client.compare_branches(project_id, "main", branch)
-            diff_text = format_diff(diff_text.get("diffs", []))
+            compare_result = gitlab_client.compare_branches(project_id, "main", branch)
+            diffs = compare_result.get("diffs", [])
         except Exception as e:
             print(f"[WARNING] Failed to get diff: {e}")
             return
         
+        if not diffs:
+            print(f"[WARNING] No diffs found in push event")
+            return
+        
+        # Форматируем diff для анализа (как в process_mr_review)
+        all_diffs_text = []
+        diff_content_for_hash = []  # Для вычисления хеша - только содержимое diff
+        for file_change in diffs:
+            file_path = file_change.get("new_path", file_change.get("old_path", "unknown"))
+            file_diff_content = file_change.get("diff", "")
+            if file_diff_content and file_diff_content.strip():
+                # Для форматирования (для анализа)
+                all_diffs_text.append(f"=== Файл: {file_path} ===")
+                all_diffs_text.append(file_diff_content)
+                all_diffs_text.append("")
+                # Для хеша (только содержимое diff, без форматирования)
+                diff_content_for_hash.append(file_diff_content)
+        
+        all_diffs_combined = "\n".join(all_diffs_text)
+        
+        # Вычисляем хеш diff ТОЛЬКО из содержимого diff (без форматирования) - как в process_mr_review
+        import hashlib
+        if diff_content_for_hash:
+            diff_hash_string = "\n".join(diff_content_for_hash)
+            diff_hash = hashlib.md5(diff_hash_string.encode()).hexdigest()[:8]
+            print(f"[INFO] Computed push diff hash: {diff_hash}")
+        else:
+            print(f"[WARNING] No diff content for hash calculation")
+            return
+        
         # Анализируем через LLM
+        print(f"[INFO] Analyzing push changes for branch '{branch}'...")
         review_result = review_engine.review_mr(
             mr_title=f"Push to {branch}",
             mr_description=f"Автоматический анализ push в ветку {branch}",
             author_name=push_data["author_name"],
             target_branch="main",
             source_branch=branch,
-            diff=diff_text
+            all_diffs=all_diffs_combined
         )
         
-        print(f"[INFO] Push review completed. Verdict: {review_result.verdict}")
+        # Форматируем комментарий
+        comment = review_engine.format_review_comment(review_result)
+        comment_hash = _get_comment_hash(comment)
+        
+        print(f"[INFO] Push review completed. Verdict: {review_result.verdict if hasattr(review_result, 'verdict') else 'N/A'}")
         
         # Ищем существующий MR для этой ветки
         try:
@@ -364,23 +585,60 @@ async def process_push_review(push_data: Dict[str, Any]):
                 mr = mrs[0]
                 mr_iid = mr.get("iid")
                 
-                comment = review_engine.format_review_comment(review_result)
-                comment_hash = _get_comment_hash(comment)
-                
                 # Проверяем дубликаты
                 if not _has_recent_ai_comment(project_id, mr_iid, comment_hash):
                     gitlab_client.post_mr_comment(project_id, mr_iid, body=comment)
                     
                     # Блокируем/разблокируем merge
-                    if review_result.verdict == "APPROVE":
+                    files_data = review_result.files
+                    if files_data:
+                        verdicts = [f.get("verdict", "CHANGES_REQUESTED") for f in files_data]
+                        if all(v == "APPROVE" for v in verdicts):
+                            overall_verdict = "APPROVE"
+                        elif any(v == "REJECT" for v in verdicts):
+                            overall_verdict = "REJECT"
+                        else:
+                            overall_verdict = "CHANGES_REQUESTED"
+                    else:
+                        overall_verdict = "CHANGES_REQUESTED"
+                    
+                    if overall_verdict == "APPROVE":
                         gitlab_client.unblock_merge(project_id, mr_iid)
                         gitlab_client.approve_mr(project_id, mr_iid)
-                    elif review_result.verdict in ["CHANGES_REQUESTED", "REJECT"]:
+                    elif overall_verdict in ["CHANGES_REQUESTED", "REJECT"]:
                         gitlab_client.block_merge(project_id, mr_iid)
                     
-                    print(f"[INFO] Push review posted to MR #{mr_iid}")
+                    print(f"[INFO] ✓ Push review posted to MR #{mr_iid}")
+                    print(f"[INFO] ===== PUSH REVIEW COMPLETED =====")
+                    print(f"[INFO] ✓ Анализ завершен")
+                    print(f"[INFO] ✓ Комментарий опубликован в MR #{mr_iid}")
+                    print(f"[INFO] ========================================")
+            else:
+                # MR еще не создан - сохраняем результат в кэш
+                push_cache_key = f"{project_id}:{branch}"
+                push_review_cache[push_cache_key] = {
+                    "review_result": review_result,
+                    "comment": comment,
+                    "comment_hash": comment_hash,
+                    "diff_hash": diff_hash,
+                    "timestamp": time.time()
+                }
+                print(f"[INFO] ===== PUSH REVIEW COMPLETED =====")
+                print(f"[INFO] ✓ Анализ завершен")
+                print(f"[INFO] ✓ Результат сохранен в кэш для будущего MR")
+                print(f"[INFO] ✓ Когда MR будет создан, комментарий опубликуется автоматически")
+                print(f"[INFO] ========================================")
         except Exception as e:
             print(f"[WARNING] Failed to find/post to MR: {e}")
+            # Все равно сохраняем в кэш на случай если MR создадут позже
+            push_cache_key = f"{project_id}:{branch}"
+            push_review_cache[push_cache_key] = {
+                "review_result": review_result,
+                "comment": comment,
+                "comment_hash": comment_hash,
+                "diff_hash": diff_hash,
+                "timestamp": time.time()
+            }
     
     except Exception as e:
         import traceback
