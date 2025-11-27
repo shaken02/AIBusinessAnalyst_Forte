@@ -53,3 +53,32 @@ def process_order(order_id, items):
     discount = total * 0.1
     return total - discount
 
+
+def calculate_discount(price, user_type):
+    # Проблема: нет type hints
+    # Проблема: нет docstring
+    # Проблема: магические числа в условиях
+    if user_type == "premium":
+        return price * 0.2
+    elif user_type == "regular":
+        return price * 0.1
+    else:
+        return 0
+
+
+def validate_phone(phone):
+    # Проблема: примитивная валидация
+    # Проблема: нет использования регулярных выражений
+    # Проблема: нет проверки формата
+    if len(phone) == 10:
+        return True
+    return False
+
+
+def get_user_age(birth_year):
+    # Проблема: нет проверки на None
+    # Проблема: нет type hints
+    # Проблема: жестко закодированный текущий год
+    current_year = 2024
+    return current_year - birth_year
+
