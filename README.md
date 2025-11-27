@@ -85,35 +85,21 @@ AI-Code Review Assistant/
 
 4. **Настройте переменные окружения:**
    
-   Создайте файл `.env` в корне проекта:
+   Создайте файл `.env` в корне проекта на основе шаблона:
    ```bash
    cd ..
-   touch .env
+   cp .env.example .env
    ```
    
-   Добавьте в файл `.env`:
-   ```bash
-   # GitLab Configuration
-   GITLAB_ACCESS_TOKEN=ваш_gitlab_token
-   GITLAB_API_URL=https://gitlab.com/api/v4
-   GITLAB_WEBHOOK_SECRET_TOKEN=ваш_секретный_токен_для_webhook
-   
-   # Gemini API Configuration
-   GEMINI_API_KEY=ваш_gemini_api_key
-   GEMINI_MODEL_NAME=gemini-2.5-flash
-   GEMINI_TEMPERATURE=0.2
-   GEMINI_TOP_P=0.9
-   GEMINI_MAX_TOKENS=8192
-   
-   # Server Configuration
-   HOST=0.0.0.0
-   PORT=8001
-   DEBUG=false
-   ```
+   Затем отредактируйте файл `.env` и заполните своими данными:
+   - `GITLAB_ACCESS_TOKEN` - ваш Personal Access Token из GitLab (Settings -> Access Tokens)
+   - `GEMINI_API_KEY` - ваш API ключ от Google Gemini (получите на https://makersuite.google.com/app/apikey)
+   - Остальные параметры можно оставить по умолчанию или настроить под себя
    
    **Важно**: 
    - Не коммитьте файл `.env` в репозиторий (он уже в `.gitignore`)
-   - Каждый пользователь должен создать свой собственный `.env` файл
+   - Каждый пользователь должен создать свой собственный `.env` файл со своими ключами
+   - Файл `.env.example` содержит только шаблон без реальных секретов
 
 ## Запуск сервера
 
