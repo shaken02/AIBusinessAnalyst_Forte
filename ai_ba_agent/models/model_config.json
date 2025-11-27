@@ -1,8 +1,0 @@
-{
-  "provider": "gemini",
-  "model_name": "gemini-2.5-flash",
-  "gemini_model_name": "gemini-2.5-flash",
-  "temperature": 0.2,
-  "top_p": 0.9,
-  "max_new_tokens": 8192
-}

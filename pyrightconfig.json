@@ -1,20 +1,16 @@
 {
   "include": [
-    "ai_ba_agent"
+    "code_review_backend"
   ],
   "exclude": [
     "**/__pycache__",
     "**/node_modules",
     "**/.venv",
-    "AIForte/bin",
-    "AIForte/include",
-    "AIForte/lib/python3.10/site-packages/**/tests"
+    "venv/bin",
+    "venv/include",
+    "venv/lib/python3.10/site-packages/**/tests"
   ],
-  "pythonPath": "./AIForte/bin/python3",
   "pythonVersion": "3.10",
-  "extraPaths": [
-    "./AIForte/lib/python3.10/site-packages"
-  ],
   "typeCheckingMode": "basic",
   "reportMissingImports": true,
   "reportMissingTypeStubs": false

@@ -1,18 +1,10 @@
 """Движок для анализа кода через LLM."""
 
 import json
-import sys
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from code_review_backend.config import config
 from code_review_backend.prompts import format_review_prompt
-
-# Добавляем путь к ai_ba_agent для использования Gemini engine
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-AI_BA_AGENT_PATH = PROJECT_ROOT / "ai_ba_agent"
-if str(AI_BA_AGENT_PATH) not in sys.path:
-    sys.path.insert(0, str(AI_BA_AGENT_PATH))
 
 # Используем Gemini напрямую
 def create_engine(model_name: Optional[str] = None):
