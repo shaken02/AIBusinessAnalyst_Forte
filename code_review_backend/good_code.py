@@ -129,7 +129,6 @@ def process_payment(amount: float, currency: str, user_id: str) -> Dict[str, Any
     
     logger.info(f"Processing payment: {amount} {currency} for user {user_id}")
     
-    # Симуляция обработки платежа
     transaction_id = f"TXN_{datetime.now().strftime('%Y%m%d%H%M%S')}_{user_id[:8]}"
     
     return {
@@ -182,7 +181,6 @@ def get_user_statistics(user_id: str, start_date: datetime, end_date: datetime) 
     
     logger.info(f"Fetching statistics for user {user_id} from {start_date} to {end_date}")
     
-    # Симуляция получения статистики
     return {
         "user_id": user_id,
         "period": {
@@ -219,5 +217,36 @@ def send_notification(user: User, message: str, notification_type: str = "info")
     
     logger.info(f"Sending {notification_type} notification to user {user.user_id}: {message[:50]}...")
     
-    # Симуляция отправки уведомления
     return True
+
+
+def create_user_account(username: str, email: str, role: UserRole) -> User:
+    """
+    Создает новый аккаунт пользователя.
+    
+    Args:
+        username: Имя пользователя
+        email: Email адрес
+        role: Роль пользователя
+        
+    Returns:
+        Объект пользователя
+        
+    Raises:
+        ValueError: Если email невалиден или username пустой
+    """
+    if not username or not username.strip():
+        raise ValueError("Username cannot be empty")
+    
+    if not validate_email(email):
+        raise ValueError("Invalid email address")
+    
+    user_id = f"user_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    
+    return User(
+        user_id=user_id,
+        username=username.strip(),
+        email=email.lower().strip(),
+        role=role,
+        created_at=datetime.now()
+    )
