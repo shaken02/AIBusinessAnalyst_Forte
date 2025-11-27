@@ -82,3 +82,24 @@ def get_user_age(birth_year):
     current_year = 2024
     return current_year - birth_year
 
+
+def process_transaction(amount, currency):
+    # Проблема: нет проверки на отрицательные значения
+    # Проблема: нет валидации валюты
+    # Проблема: нет обработки ошибок
+    # Проблема: магические числа для конвертации
+    if currency == "USD":
+        return amount * 450  # Жестко закодированный курс
+    elif currency == "EUR":
+        return amount * 500
+    return amount
+
+
+def validate_user_input(input_data):
+    # Проблема: нет проверки типа данных
+    # Проблема: нет санитизации входных данных
+    # Проблема: примитивная валидация
+    if len(input_data) > 0:
+        return True
+    return False
+
