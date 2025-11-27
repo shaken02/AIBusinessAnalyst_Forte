@@ -1,64 +1,75 @@
 @echo off
-REM Скрипт запуска AI Code Review Backend для Windows
 
-setlocal enabledelayedexpansion
+setlocal
 
-REM Находим корень проекта
+:: ------------------------------------------------------------------
+:: Скрипт запуска AI Code Review Backend для Windows
+:: ------------------------------------------------------------------
+
+:: Находим пути
+:: %~dp0 — это директория, где лежит сам скрипт (слэш на конце включен)
 set "SCRIPT_DIR=%~dp0"
-set "PROJECT_ROOT=%SCRIPT_DIR%.."
+
+:: Убираем последний слэш для красоты путей, если нужно, но cmd понимает и так
+set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
+
+:: Переходим на уровень выше, чтобы найти корень проекта
+pushd "%SCRIPT_DIR%\.."
+set "PROJECT_ROOT=%CD%"
+popd
+
 set "VENV_PATH=%PROJECT_ROOT%\venv"
 
 echo ==========================================
-echo 🚀 Запуск AI Code Review Backend
+echo 🚀 Start AI Code Review Backend (Windows)
 echo ==========================================
-echo.
 
-REM Проверяем виртуальное окружение
+:: Проверяем виртуальное окружение
 if not exist "%VENV_PATH%" (
-  echo ❌ Ошибка: Виртуальное окружение не найдено!
-  echo    Ожидалось: %VENV_PATH%
-  echo.
-  echo Создайте окружение:
-  echo   cd "%PROJECT_ROOT%"
-  echo   python -m venv venv
-  echo   venv\Scripts\activate
-  echo   pip install -r code_review_backend\requirements.txt
-  pause
-  exit /b 1
+    echo ❌ Error: Virtual environment not found!
+    echo   Expected: %VENV_PATH%
+    echo.
+    echo Please create the environment:
+    echo   cd "%PROJECT_ROOT%"
+    echo   python -m venv venv
+    echo   venv\Scripts\activate
+    echo   pip install -r code_review_backend\requirements.txt
+    pause
+    exit /b 1
 )
 
-REM Активируем окружение
-echo 📦 Активирую окружение: %VENV_PATH%
+:: Активируем окружение (в Windows папка называется Scripts, а не bin)
+echo 📦 Activating environment: %VENV_PATH%
 call "%VENV_PATH%\Scripts\activate.bat"
 
-REM Проверяем зависимости
-echo 🔍 Проверяю зависимости...
-python -c "import fastapi" 2>nul
-if errorlevel 1 (
-  echo ⚠️  Зависимости не установлены. Устанавливаю...
-  pip install -q -r "%SCRIPT_DIR%requirements.txt"
-  echo ✅ Зависимости установлены
+:: Проверяем зависимости
+echo 🔍 Checking dependencies...
+python -c "import fastapi" >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ⚠️  Dependencies missing. Installing...
+    pip install -q -r "%SCRIPT_DIR%\requirements.txt"
+    echo ✅ Dependencies installed
 ) else (
-  echo ✅ Зависимости установлены
+    echo ✅ Dependencies installed
 )
 
-REM Устанавливаем PYTHONPATH
-set "PYTHONPATH=%SCRIPT_DIR%;%PYTHONPATH%"
+:: Устанавливаем PYTHONPATH (корень проекта)
+:: В Windows разделитель путей — точка с запятой (;)
+set "PYTHONPATH=%PROJECT_ROOT%;%PYTHONPATH%"
 
-REM Переходим в директорию backend
+:: Переходим в директорию backend
 cd /d "%SCRIPT_DIR%"
 
+echo 🌐 Starting server at http://localhost:8001
+echo   Health check: http://localhost:8001/health
+echo   Webhook endpoint: http://localhost:8001/gitlab/webhook
 echo.
-echo 🌐 Запускаю сервер на http://localhost:8001
-echo    Health check: http://localhost:8001/health
-echo    Webhook endpoint: http://localhost:8001/gitlab/webhook
-echo.
-echo Для остановки нажмите Ctrl+C
+echo Press Ctrl+C to stop
 echo ==========================================
 echo.
 
-REM Запускаем сервер через uvicorn
-uvicorn code_review_backend.main:app --host 0.0.0.0 --port 8001 --reload
+:: Запускаем сервер
+python main.py
 
-pause
-
+:: Чтобы окно не закрывалось сразу после ошибки (опционально)
+if %errorlevel% neq 0 pause
