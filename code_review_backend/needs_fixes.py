@@ -103,3 +103,35 @@ def validate_user_input(input_data):
     if len(input_data) > 0:
         return True
     return False
+
+
+def calculate_shipping_cost(weight, distance):
+    # Проблема: нет type hints
+    # Проблема: нет docstring
+    # Проблема: магические числа (10, 5)
+    # Проблема: нет проверки на отрицательные значения
+    base_cost = 10
+    per_km = 5
+    return base_cost + (distance * per_km)
+
+
+def format_date(date_string):
+    # Проблема: нет type hints
+    # Проблема: нет docstring
+    # Проблема: нет обработки ошибок
+    # Проблема: нет валидации формата даты
+    parts = date_string.split("-")
+    return f"{parts[2]}/{parts[1]}/{parts[0]}"
+
+
+def get_product_price(product_id):
+    # Проблема: нет type hints
+    # Проблема: нет docstring
+    # Проблема: жестко закодированные цены
+    # Проблема: нет обработки несуществующих продуктов
+    prices = {
+        "1": 100,
+        "2": 200,
+        "3": 300
+    }
+    return prices.get(product_id, 0)

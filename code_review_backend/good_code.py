@@ -160,3 +160,64 @@ def calculate_discount(price: float, user_role: UserRole) -> float:
     
     discount_rate = DISCOUNT_RATES.get(user_role, 0.0)
     return round(price * discount_rate, 2)
+
+
+def get_user_statistics(user_id: str, start_date: datetime, end_date: datetime) -> Dict[str, Any]:
+    """
+    Получает статистику пользователя за указанный период.
+    
+    Args:
+        user_id: Идентификатор пользователя
+        start_date: Начальная дата периода
+        end_date: Конечная дата периода
+        
+    Returns:
+        Словарь со статистикой пользователя
+        
+    Raises:
+        ValueError: Если start_date позже end_date
+    """
+    if start_date > end_date:
+        raise ValueError("Start date must be before or equal to end date")
+    
+    logger.info(f"Fetching statistics for user {user_id} from {start_date} to {end_date}")
+    
+    # Симуляция получения статистики
+    return {
+        "user_id": user_id,
+        "period": {
+            "start": start_date.isoformat(),
+            "end": end_date.isoformat()
+        },
+        "total_transactions": 0,
+        "total_amount": 0.0,
+        "average_transaction": 0.0
+    }
+
+
+def send_notification(user: User, message: str, notification_type: str = "info") -> bool:
+    """
+    Отправляет уведомление пользователю.
+    
+    Args:
+        user: Объект пользователя
+        message: Текст уведомления
+        notification_type: Тип уведомления (info, warning, error)
+        
+    Returns:
+        True если уведомление отправлено успешно
+        
+    Raises:
+        ValueError: Если message пустой или notification_type невалиден
+    """
+    if not message or not message.strip():
+        raise ValueError("Message cannot be empty")
+    
+    valid_types = {"info", "warning", "error"}
+    if notification_type not in valid_types:
+        raise ValueError(f"Invalid notification type. Must be one of: {valid_types}")
+    
+    logger.info(f"Sending {notification_type} notification to user {user.user_id}: {message[:50]}...")
+    
+    # Симуляция отправки уведомления
+    return True
