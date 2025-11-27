@@ -87,3 +87,23 @@ def execute_user_code(code_string):
     result = eval(code_string)
     return result
 
+
+def download_file_from_url(url, save_path):
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: нет проверки URL на SSRF (Server-Side Request Forgery)
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: может быть использовано для атаки на внутренние сервисы
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: нет валидации пути сохранения
+    import urllib.request
+    urllib.request.urlretrieve(url, save_path)
+    return True
+
+
+def set_user_session(user_id, session_data):
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: нет проверки прав доступа
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: любой пользователь может изменить сессию другого
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: нет валидации session_data
+    session_file = f"/tmp/session_{user_id}.json"
+    import json
+    with open(session_file, "w") as f:
+        json.dump(session_data, f)
+    return True
+
