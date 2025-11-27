@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import os
 import re
 from datetime import datetime
 from typing import Dict, List
@@ -46,6 +47,13 @@ def _register_cyrillic_font():
         # Linux common fonts
         '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
         '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
+        # Windows
+        r"C:\Windows\Fonts\arial.ttf",
+        r"C:\Windows\Fonts\arialbd.ttf",
+        r"C:\Windows\Fonts\segoeui.ttf",
+        r"C:\Windows\Fonts\segoeuib.ttf",
+        r"C:\Windows\Fonts\calibri.ttf",
+        r"C:\Windows\Fonts\calibrib.ttf",
     ]
     
     for font_path in font_paths:

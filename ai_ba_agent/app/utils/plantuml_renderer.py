@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 from typing import Optional
+import shutil
 
 from app.utils.logger import logger
 
@@ -64,6 +65,11 @@ def render_plantuml_to_png(plantuml_code: str) -> Optional[bytes]:
             '/opt/homebrew/bin/java',
             '/usr/bin/java',
             '/usr/local/bin/java',
+            str(Path(os.environ.get("JAVA_HOME", "")) / "bin" / "java"),
+            str(Path(os.environ.get("JAVA_HOME", "")) / "bin" / "java.exe"),
+            r'C:\Program Files\Java\jdk-17\bin\java.exe',
+            r'C:\Program Files\Eclipse Adoptium\jdk-17\bin\java.exe',
+            r"C:\Program Files (x86)\Common Files\Oracle\Java\java8path\java.exe",
         ]
         
         for path in java_paths_to_check:
@@ -71,6 +77,9 @@ def render_plantuml_to_png(plantuml_code: str) -> Optional[bytes]:
                 java_path = path
                 logger.info(f"Found Java at: {java_path}")
                 break
+
+        if not java_path:
+            java_path = shutil.which("java") or shutil.which("java.exe")
         
         if not java_path:
             # Try which java

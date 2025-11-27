@@ -210,7 +210,7 @@ class GeminiEngine(LLMEngine):
             raise RuntimeError(f"Gemini API error: {exc}") from exc
 
 
-def create_engine(model_name: str | None = None) -> LLMEngine:
+def create_engine(model_name: str | None = "gemini-2.5-flash", **_ignored) -> LLMEngine:    
     """
     Create an LLM engine instance.
     
