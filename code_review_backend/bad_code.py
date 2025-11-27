@@ -8,6 +8,9 @@ DATABASE_PASSWORD = "admin12345"
 # КРИТИЧЕСКАЯ ПРОБЛЕМА: API ключ в коде
 API_KEY = "sk-1234567890abcdef"
 
+# КРИТИЧЕСКАЯ ПРОБЛЕМА: новый секретный токен в коде
+SECRET_TOKEN = "my_secret_token_2024"
+
 def authenticate_user(username, password):
     # КРИТИЧЕСКАЯ ПРОБЛЕМА: SQL injection уязвимость
     query = f"SELECT * FROM users WHERE username='{username}' AND password='{password}'"
@@ -36,4 +39,12 @@ def get_admin_credentials():
         "username": "admin",
         "password": "super_secret_password_123"
     }
+
+
+def validate_api_request(token):
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: сравнение токенов через == вместо безопасного сравнения
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: нет защиты от timing attacks
+    if token == SECRET_TOKEN:
+        return True
+    return False
 
