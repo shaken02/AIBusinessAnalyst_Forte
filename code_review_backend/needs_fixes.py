@@ -25,3 +25,18 @@ def validate_email(email):
         return True
     return False
 
+
+def calculate_tax(price, tax_rate):
+    # Новая функция с проблемами
+    # Проблема: нет проверки на None
+    # Проблема: нет type hints
+    # Проблема: может вернуть отрицательное значение
+    return price * tax_rate
+
+
+def format_currency(value):
+    # Новая функция с проблемами
+    # Проблема: нет обработки ошибок
+    # Проблема: нет проверки типа
+    return f"${value}"
+
