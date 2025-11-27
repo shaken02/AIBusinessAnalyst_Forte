@@ -119,10 +119,17 @@ AI-Code Review Assistant/
 
 ### Способ 1: Использование скрипта (рекомендуется)
 
+**На macOS/Linux:**
 ```bash
 cd code_review_backend
-chmod +x start.sh
-./start.sh
+chmod +x start_macos.sh
+./start_macos.sh
+```
+
+**На Windows:**
+```cmd
+cd code_review_backend
+start_windows.bat
 ```
 
 Скрипт автоматически:
