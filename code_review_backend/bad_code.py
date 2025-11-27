@@ -125,3 +125,24 @@ def process_payment(card_number, cvv, amount):
     # Обработка платежа без шифрования
     return {"status": "success", "card_last4": card_number[-4:]}
 
+
+def upload_file(file_path, user_id):
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: нет проверки типа файла
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: нет проверки размера файла
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: путь формируется из пользовательского ввода (Path Traversal)
+    upload_dir = f"/uploads/{user_id}/{file_path}"
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: нет санитизации пути
+    with open(upload_dir, "wb") as f:
+        f.write(b"file content")  # Упрощенная логика
+    return True
+
+
+def reset_password(email):
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: нет проверки существования пользователя
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: утечка информации (можно узнать, зарегистрирован ли email)
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: генерация слабого пароля
+    new_password = "123456"  # Слабый пароль
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: отправка пароля в открытом виде
+    print(f"New password for {email}: {new_password}")
+    return True
+
