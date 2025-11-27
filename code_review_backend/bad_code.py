@@ -107,3 +107,21 @@ def set_user_session(user_id, session_data):
         json.dump(session_data, f)
     return True
 
+
+def delete_user_data(user_id):
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: нет проверки прав доступа
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: нет подтверждения удаления
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: использование os.system с пользовательским вводом
+    import os
+    os.system(f"rm -rf /data/users/{user_id}/*")
+    return True
+
+
+def process_payment(card_number, cvv, amount):
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: логирование данных карты
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: нет шифрования чувствительных данных
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: передача CVV в открытом виде
+    print(f"Processing payment: card={card_number}, cvv={cvv}, amount={amount}")
+    # Обработка платежа без шифрования
+    return {"status": "success", "card_last4": card_number[-4:]}
+
