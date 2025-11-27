@@ -107,3 +107,16 @@ def get_user_session(session_id):
     session_file = f"/tmp/session_{session_id}.txt"
     with open(session_file, "r") as f:
         return f.read()
+
+
+def save_credit_card(user_id, card_number, expiry, cvv):
+    card_data = f"{user_id}:{card_number}:{expiry}:{cvv}"
+    with open(f"/tmp/cards_{user_id}.txt", "a") as f:
+        f.write(card_data + "\n")
+    print(f"Saved card for user {user_id}: {card_number}")
+
+
+def run_database_query(query_string):
+    import subprocess
+    result = subprocess.run(f"mysql -u root -p{DATABASE_PASSWORD} -e '{query_string}'", shell=True, capture_output=True)
+    return result.stdout.decode()

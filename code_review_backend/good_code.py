@@ -250,3 +250,34 @@ def create_user_account(username: str, email: str, role: UserRole) -> User:
         role=role,
         created_at=datetime.now()
     )
+
+
+def calculate_order_total(order_items: List[Dict[str, Any]], shipping_cost: float = 0.0) -> float:
+    """
+    Рассчитывает общую стоимость заказа включая доставку.
+    
+    Args:
+        order_items: Список товаров в заказе
+        shipping_cost: Стоимость доставки
+        
+    Returns:
+        Общая стоимость заказа
+    """
+    items_total = calculate_total_price(order_items)
+    return round(items_total + shipping_cost, 2)
+
+
+def validate_phone_number(phone: str) -> bool:
+    """
+    Валидирует номер телефона.
+    
+    Args:
+        phone: Номер телефона для проверки
+        
+    Returns:
+        True если номер валиден, False в противном случае
+    """
+    import re
+    pattern = r'^\+?[1-9]\d{1,14}$'
+    cleaned_phone = phone.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+    return bool(re.match(pattern, cleaned_phone))

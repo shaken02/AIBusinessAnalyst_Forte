@@ -101,3 +101,21 @@ def calculate_total(items):
     for i in items:
         sum = sum + i
     return sum
+
+
+def get_discount_percentage(user_level):
+    if user_level == 1:
+        return 5
+    elif user_level == 2:
+        return 10
+    elif user_level == 3:
+        return 15
+    return 0
+
+
+def convert_temperature(temp, unit):
+    if unit == "F":
+        return temp * 9 / 5 + 32
+    elif unit == "C":
+        return (temp - 32) * 5 / 9
+    return temp
