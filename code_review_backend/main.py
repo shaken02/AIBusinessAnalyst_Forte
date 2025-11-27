@@ -33,6 +33,7 @@ review_engine = ReviewEngine()
 # Кэш для отслеживания уже обработанных MR (защита от дубликатов)
 processed_mr_cache: Dict[str, str] = {}  # {mr_key: last_comment_hash}
 diff_hash_cache: Dict[str, str] = {}  # {mr_key: last_diff_hash} - для проверки изменений diff
+diff_cache: Dict[str, Dict[str, Any]] = {}  # {mr_key: {"hash": ..., "diff": ..., "timestamp": ...}} - кэш самого diff
 push_review_cache: Dict[str, Dict[str, Any]] = {}  # {f"{project_id}:{branch}": {"review_result": ..., "comment": ..., "diff_hash": ...}}
 
 
@@ -215,33 +216,70 @@ async def process_mr_review(mr_data: Dict[str, Any]):
         print(f"[INFO] Project: {project_id}, MR IID: {mr_iid}")
         print(f"[INFO] Title: {mr_data.get('mr_title', 'N/A')[:50]}...")
         
-        # Получаем изменения (diff) - сначала получаем diff для проверки хеша
-        print(f"[INFO] [1/5] Fetching MR changes (diff) from GitLab...")
-        mr_changes = gitlab_client.get_mr_changes(project_id, mr_iid)
-        diff = mr_changes.get("changes", [])
-        
-        if not diff:
-            print(f"[WARNING] No file changes to analyze, skipping review")
-            return
-        
-        # Быстро вычисляем хеш diff для проверки
+        # ОПТИМИЗАЦИЯ: Сначала проверяем кэш diff - если есть, используем его вместо запроса к GitLab
         import hashlib
-        diff_content_for_hash = []
-        for file_change in diff:
-            file_diff_content = file_change.get("diff", "")
-            if file_diff_content and file_diff_content.strip():
-                diff_content_for_hash.append(file_diff_content)
+        cached_diff_data = diff_cache.get(cache_key)
+        diff = None
+        current_diff_hash = None
         
-        if not diff_content_for_hash:
-            print(f"[WARNING] No file changes to analyze, skipping review")
-            return
+        if cached_diff_data:
+            cached_diff_hash = cached_diff_data.get("hash")
+            cached_diff = cached_diff_data.get("diff")
+            print(f"[INFO] Found cached diff data (hash: {cached_diff_hash})")
+            
+            # Вычисляем хеш из кэшированного diff для проверки
+            diff_content_for_hash = []
+            for file_change in cached_diff:
+                file_diff_content = file_change.get("diff", "")
+                if file_diff_content and file_diff_content.strip():
+                    diff_content_for_hash.append(file_diff_content)
+            
+            if diff_content_for_hash:
+                diff_hash_string = "\n".join(diff_content_for_hash)
+                computed_hash = hashlib.md5(diff_hash_string.encode()).hexdigest()[:8]
+                
+                if computed_hash == cached_diff_hash:
+                    print(f"[INFO] Using cached diff (hash matches: {cached_diff_hash})")
+                    diff = cached_diff
+                    current_diff_hash = cached_diff_hash
+                else:
+                    print(f"[INFO] Cached diff hash mismatch, will fetch new diff")
         
-        # Вычисляем хеш только из содержимого diff (без форматирования)
-        diff_hash_string = "\n".join(diff_content_for_hash)
-        current_diff_hash = hashlib.md5(diff_hash_string.encode()).hexdigest()[:8]
-        print(f"[INFO] Computed diff hash: {current_diff_hash}")
+        # Если diff не в кэше или хеш не совпадает - получаем из GitLab
+        if diff is None:
+            print(f"[INFO] [1/5] Fetching MR changes (diff) from GitLab...")
+            mr_changes = gitlab_client.get_mr_changes(project_id, mr_iid)
+            diff = mr_changes.get("changes", [])
+            
+            if not diff:
+                print(f"[WARNING] No file changes to analyze, skipping review")
+                return
+            
+            # Вычисляем хеш нового diff
+            diff_content_for_hash = []
+            for file_change in diff:
+                file_diff_content = file_change.get("diff", "")
+                if file_diff_content and file_diff_content.strip():
+                    diff_content_for_hash.append(file_diff_content)
+            
+            if not diff_content_for_hash:
+                print(f"[WARNING] No file changes to analyze, skipping review")
+                return
+            
+            # Вычисляем хеш только из содержимого diff (без форматирования)
+            diff_hash_string = "\n".join(diff_content_for_hash)
+            current_diff_hash = hashlib.md5(diff_hash_string.encode()).hexdigest()[:8]
+            print(f"[INFO] Computed diff hash: {current_diff_hash}")
+            
+            # Сохраняем diff в кэш
+            diff_cache[cache_key] = {
+                "hash": current_diff_hash,
+                "diff": diff,
+                "timestamp": time.time()
+            }
+            print(f"[INFO] Saved diff to cache")
         
-        # Сначала проверяем, не обрабатывали ли мы уже этот diff
+        # Проверяем, не обрабатывали ли мы уже этот diff
         cached_diff_hash = diff_hash_cache.get(cache_key)
         if cached_diff_hash:
             print(f"[INFO] Found cached diff hash: {cached_diff_hash}")
@@ -395,15 +433,8 @@ async def process_mr_review(mr_data: Dict[str, Any]):
         
         all_diffs_combined = "\n".join(all_diffs_text)
         
-        # Проверяем, изменился ли diff (хеш diff) - используем уже вычисленный хеш
-        # НЕ сохраняем diff_hash здесь - сохраним только после успешного анализа и публикации
-        diff_hash = current_diff_hash
-        if cache_key in diff_hash_cache and diff_hash_cache[cache_key] == diff_hash:
-            print(f"[INFO] Diff unchanged (hash: {diff_hash}), skipping review")
-            print(f"[INFO] ===== SKIPPED MR REVIEW #{mr_iid} (no changes) =====")
-            return
-        
-        print(f"[INFO] Diff hash: {diff_hash} (will process)")
+        # Хеш уже проверен выше, продолжаем анализ
+        print(f"[INFO] Diff hash: {current_diff_hash} (will process)")
         
         # Анализируем все файлы одним запросом через LLM
         print(f"[INFO] [3/5] Analyzing {num_files} file(s) in one request...")
@@ -448,6 +479,15 @@ async def process_mr_review(mr_data: Dict[str, Any]):
         cache_key = _get_mr_cache_key(project_id, mr_iid)
         processed_mr_cache[cache_key] = comment_hash
         diff_hash_cache[cache_key] = current_diff_hash  # Сохраняем diff_hash после анализа
+        
+        # Обновляем кэш diff (если еще не сохранен)
+        if cache_key not in diff_cache or diff_cache[cache_key].get("hash") != current_diff_hash:
+            diff_cache[cache_key] = {
+                "hash": current_diff_hash,
+                "diff": diff,
+                "timestamp": time.time()
+            }
+        
         print(f"[INFO] Saved diff hash to cache: {current_diff_hash} for MR #{mr_iid}")
         
         # Отправляем комментарий в GitLab
