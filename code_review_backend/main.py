@@ -186,38 +186,84 @@ async def process_mr_review(mr_data: Dict[str, Any]):
     try:
         project_id = str(mr_data["project_id"])
         mr_iid = mr_data["mr_iid"]
+        cache_key = _get_mr_cache_key(project_id, mr_iid)
         
-        print(f"[INFO] Processing MR review: project={project_id}, mr_iid={mr_iid}")
+        print(f"[INFO] ===== STARTING MR REVIEW #{mr_iid} =====")
+        print(f"[INFO] Project: {project_id}, MR IID: {mr_iid}")
+        print(f"[INFO] Title: {mr_data.get('mr_title', 'N/A')[:50]}...")
         
         # Получаем информацию о MR
+        print(f"[INFO] [1/5] Fetching MR info from GitLab...")
         mr_info = gitlab_client.get_mr_info(project_id, mr_iid)
         
         # Получаем изменения (diff)
+        print(f"[INFO] [2/5] Fetching MR changes (diff) from GitLab...")
         mr_changes = gitlab_client.get_mr_changes(project_id, mr_iid)
         diff = mr_changes.get("changes", [])
         
-        # Форматируем diff для анализа
-        diff_text = format_diff(diff)
+        # Подсчитываем файлы
+        num_files = len(diff)
+        print(f"[INFO] Found {num_files} file(s) changed in MR #{mr_iid}")
+        if num_files > 0:
+            file_names = [ch.get("new_path", ch.get("old_path", "unknown")) for ch in diff[:5]]
+            print(f"[INFO] Files: {', '.join(file_names)}{' ...' if num_files > 5 else ''}")
         
-        # Анализируем через LLM
+        # Форматируем все diff'ы в один текст
+        all_diffs_text = []
+        for file_change in diff:
+            file_path = file_change.get("new_path", file_change.get("old_path", "unknown"))
+            file_diff_content = file_change.get("diff", "")
+            
+            if not file_diff_content or file_diff_content.strip() == "":
+                continue
+            
+            all_diffs_text.append(f"=== Файл: {file_path} ===")
+            all_diffs_text.append(file_diff_content)
+            all_diffs_text.append("")
+        
+        if not all_diffs_text:
+            print(f"[WARNING] No file changes to analyze, skipping review")
+            return
+        
+        all_diffs_combined = "\n".join(all_diffs_text)
+        
+        # Анализируем все файлы одним запросом через LLM
+        print(f"[INFO] [3/5] Analyzing {num_files} file(s) in one request...")
         review_result = review_engine.review_mr(
             mr_title=mr_data["mr_title"],
             mr_description=mr_data["mr_description"],
             author_name=mr_data["author_name"],
             target_branch=mr_data["target_branch"],
             source_branch=mr_data["source_branch"],
-            diff=diff_text
+            all_diffs=all_diffs_combined
         )
         
-        print(f"[INFO] Review completed. Verdict: {review_result.verdict}")
+        # Определяем общий вердикт на основе результатов по файлам
+        files_data = review_result.files
+        if not files_data:
+            print(f"[WARNING] No files analyzed, skipping review")
+            return
+        
+        verdicts = [f.get("verdict", "CHANGES_REQUESTED") for f in files_data]
+        if all(v == "APPROVE" for v in verdicts):
+            overall_verdict = "APPROVE"
+        elif any(v == "REJECT" for v in verdicts):
+            overall_verdict = "REJECT"
+        else:
+            overall_verdict = "CHANGES_REQUESTED"
+        
+        print(f"[INFO] [3/5] ✓ Gemini analysis completed")
+        print(f"[INFO] Overall verdict: {overall_verdict} (based on {len(files_data)} file(s))")
         
         # Форматируем комментарий
+        print(f"[INFO] [4/5] Formatting review comment...")
         comment = review_engine.format_review_comment(review_result)
         comment_hash = _get_comment_hash(comment)
         
         # ЗАЩИТА ОТ ДУБЛИКАТОВ: проверяем был ли уже такой комментарий
         if _has_recent_ai_comment(project_id, mr_iid, comment_hash):
-            print(f"[INFO] Skipping duplicate comment for MR #{mr_iid}")
+            print(f"[INFO] Skipping duplicate comment for MR #{mr_iid} (same comment already exists)")
+            print(f"[INFO] ===== SKIPPED MR REVIEW #{mr_iid} (duplicate) =====")
             return
         
         # Сохраняем в кэш
@@ -225,34 +271,37 @@ async def process_mr_review(mr_data: Dict[str, Any]):
         processed_mr_cache[cache_key] = comment_hash
         
         # Отправляем комментарий в GitLab
+        print(f"[INFO] [4/5] Posting comment to GitLab MR #{mr_iid}...")
         gitlab_client.post_mr_comment(
             project_id=project_id,
             mr_iid=mr_iid,
             body=comment
         )
+        print(f"[INFO] [4/5] ✓ Comment posted successfully")
         
         # Обновляем лейблы и блокируем/разблокируем merge
+        print(f"[INFO] [5/5] Updating MR labels and merge status...")
         labels = []
-        if review_result.verdict == "APPROVE":
+        if overall_verdict == "APPROVE":
             labels = ["ai-reviewed", "ready-for-merge"]
             try:
                 gitlab_client.unblock_merge(project_id, mr_iid)
                 gitlab_client.approve_mr(project_id, mr_iid)
-                print(f"[INFO] MR #{mr_iid} approved and merge unblocked")
+                print(f"[INFO] [5/5] ✓ MR #{mr_iid} approved and merge unblocked")
             except Exception as e:
                 print(f"[WARNING] Failed to approve/unblock MR: {e}")
-        elif review_result.verdict == "CHANGES_REQUESTED":
+        elif overall_verdict == "CHANGES_REQUESTED":
             labels = ["ai-reviewed", "changes-requested"]
             try:
                 gitlab_client.block_merge(project_id, mr_iid)
-                print(f"[INFO] MR #{mr_iid} merge blocked - changes requested")
+                print(f"[INFO] [5/5] ✓ MR #{mr_iid} merge blocked - changes requested")
             except Exception as e:
                 print(f"[WARNING] Failed to block MR: {e}")
-        elif review_result.verdict == "REJECT":
+        elif overall_verdict == "REJECT":
             labels = ["ai-reviewed", "rejected"]
             try:
                 gitlab_client.block_merge(project_id, mr_iid)
-                print(f"[INFO] MR #{mr_iid} merge blocked - rejected")
+                print(f"[INFO] [5/5] ✓ MR #{mr_iid} merge blocked - rejected")
             except Exception as e:
                 print(f"[WARNING] Failed to block MR: {e}")
         
@@ -260,8 +309,10 @@ async def process_mr_review(mr_data: Dict[str, Any]):
             current_labels = mr_info.get("labels", [])
             all_labels = list(set(current_labels + labels))
             gitlab_client.update_mr_labels(project_id, mr_iid, all_labels)
+            print(f"[INFO] [5/5] ✓ Labels updated: {', '.join(labels)}")
         
-        print(f"[INFO] Review completed and posted to MR #{mr_iid}")
+        print(f"[INFO] ===== COMPLETED MR REVIEW #{mr_iid} =====")
+        print(f"[INFO] Ready for next request. Waiting...")
     
     except Exception as e:
         import traceback

@@ -85,11 +85,21 @@ class ReviewResult:
             
             self.parsed = json.loads(response_text)
         except (json.JSONDecodeError, ValueError) as e:
+            print(f"[ERROR] Failed to parse JSON response: {e}")
+            # Попытка извлечь JSON вручную
+            try:
+                start_idx = self.raw_response.find("{")
+                end_idx = self.raw_response.rfind("}")
+                if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+                    json_str = self.raw_response[start_idx:end_idx + 1]
+                    self.parsed = json.loads(json_str)
+                    return
+            except Exception as e2:
+                print(f"[ERROR] Manual extraction also failed: {e2}")
+            
             self.parsed = {
-                "verdict": "CHANGES_REQUESTED",
-                "summary": "Не удалось распарсить ответ LLM",
-                "critical_issues": [],
-                "suggestions": []
+                "files": [],
+                "error": "Не удалось распарсить ответ от AI"
             }
     
     @property
@@ -116,6 +126,11 @@ class ReviewResult:
     def suggestions(self) -> List[str]:
         """Рекомендации."""
         return self.parsed.get("suggestions", [])
+    
+    @property
+    def files(self) -> List[Dict[str, Any]]:
+        """Список результатов анализа по файлам."""
+        return self.parsed.get("files", [])
 
 
 class ReviewEngine:
@@ -139,10 +154,10 @@ class ReviewEngine:
         author_name: str,
         target_branch: str,
         source_branch: str,
-        diff: str
+        all_diffs: str
     ) -> ReviewResult:
         """
-        Анализирует Merge Request через LLM.
+        Анализирует все файлы Merge Request одним запросом через LLM.
         
         Args:
             mr_title: Название MR
@@ -150,7 +165,7 @@ class ReviewEngine:
             author_name: Имя автора
             target_branch: Целевая ветка
             source_branch: Исходная ветка
-            diff: Diff изменений
+            all_diffs: Diff всех измененных файлов
         
         Returns:
             ReviewResult с результатами анализа
@@ -162,60 +177,122 @@ class ReviewEngine:
             author_name=author_name,
             target_branch=target_branch,
             source_branch=source_branch,
-            diff=diff
+            all_diffs=all_diffs
         )
         
         # Отправляем в LLM
+        print(f"[INFO] Sending request to Gemini API for all files...")
         response = self.llm.ask(prompt)
+        print(f"[INFO] Received response from Gemini (length: {len(response)} chars)")
+        
+        # Логируем начало ответа для отладки
+        response_preview = response[:200].replace("\n", "\\n")
+        print(f"[DEBUG] Response preview: {response_preview}...")
         
         # Парсим результат
-        return ReviewResult(response)
+        print(f"[INFO] Parsing Gemini response...")
+        result = ReviewResult(response)
+        
+        # Проверяем, успешно ли распарсилось
+        if "error" in result.parsed:
+            print(f"[WARNING] Failed to parse response! Full response saved for debugging.")
+            print(f"[DEBUG] Full response:\n{response}")
+        else:
+            files_count = len(result.files)
+            print(f"[INFO] ✓ Response parsed successfully, analyzed {files_count} file(s)")
+        
+        return result
     
     def format_review_comment(self, result: ReviewResult) -> str:
-        """Форматирует результат анализа в короткий комментарий для GitLab."""
+        """Форматирует результаты анализа всех файлов в один комментарий."""
         lines = []
         
-        # Вердикт с эмодзи
-        if result.verdict == "APPROVE":
-            lines.append("## ✅ AI Code Review: APPROVE")
-        elif result.verdict == "CHANGES_REQUESTED":
-            lines.append("## ❓ AI Code Review: CHANGES_REQUESTED")
-        elif result.verdict == "REJECT":
-            lines.append("## ❌ AI Code Review: REJECT")
-        else:
-            lines.append(f"## AI Code Review: {result.verdict}")
+        files_data = result.files
+        if not files_data:
+            if "error" in result.parsed:
+                lines.append("## ❌ AI Code Review: ОШИБКА")
+                lines.append("")
+                lines.append(f"**Ошибка:** {result.parsed.get('error', 'Неизвестная ошибка')}")
+                return "\n".join(lines)
+            else:
+                lines.append("## ⚠️ AI Code Review: НЕТ ДАННЫХ")
+                return "\n".join(lines)
         
+        # Подсчитываем общий вердикт
+        verdicts = [f.get("verdict", "CHANGES_REQUESTED") for f in files_data]
+        if all(v == "APPROVE" for v in verdicts):
+            overall_verdict = "APPROVE"
+            overall_emoji = "✅"
+        elif any(v == "REJECT" for v in verdicts):
+            overall_verdict = "REJECT"
+            overall_emoji = "❌"
+        else:
+            overall_verdict = "CHANGES_REQUESTED"
+            overall_emoji = "❓"
+        
+        lines.append(f"## {overall_emoji} AI Code Review: {overall_verdict}")
+        lines.append("")
+        lines.append(f"Проанализировано файлов: {len(files_data)}")
         lines.append("")
         
-        # Объяснение вердикта
-        if result.verdict_explanation:
-            lines.append(f"**Объяснение:** {result.verdict_explanation}")
+        # Результаты по каждому файлу
+        for file_data in files_data:
+            file_path = file_data.get("file_path", "unknown")
+            verdict = file_data.get("verdict", "CHANGES_REQUESTED")
+            what_changed = file_data.get("what_changed", "")
+            verdict_explanation = file_data.get("verdict_explanation", "")
+            critical_issues = file_data.get("critical_issues", [])
+            suggestions = file_data.get("suggestions", [])
+            
+            # Вердикт для файла
+            verdict_emoji = ""
+            if verdict == "APPROVE":
+                verdict_emoji = "✅"
+            elif verdict == "CHANGES_REQUESTED":
+                verdict_emoji = "❓"
+            elif verdict == "REJECT":
+                verdict_emoji = "❌"
+            
+            lines.append(f"### {verdict_emoji} Файл: `{file_path}` - {verdict}")
             lines.append("")
-        
-        # Резюме
-        if result.summary:
-            lines.append(f"**Резюме:** {result.summary}")
+            
+            # Что пытались изменить
+            if what_changed:
+                lines.append(f"**Что изменено:** {what_changed}")
+                lines.append("")
+            
+            # Объяснение вердикта
+            if verdict_explanation:
+                lines.append(f"**Почему такое решение:** {verdict_explanation}")
+                lines.append("")
+            
+            # Проблемы
+            if critical_issues:
+                lines.append("**Найденные проблемы:**")
+                for idx, issue in enumerate(critical_issues[:5], 1):
+                    line = issue.get("line", "?")
+                    issue_type = issue.get("type", "error")
+                    message = issue.get("message", "")
+                    why = issue.get("why", "")
+                    fix = issue.get("fix", "")
+                    
+                    lines.append(f"{idx}. Строка {line} ({issue_type})")
+                    if message:
+                        lines.append(f"   - Что не так: {message}")
+                    if why:
+                        lines.append(f"   - Почему это проблема: {why}")
+                    if fix:
+                        lines.append(f"   - Как исправить: {fix}")
+                    lines.append("")
+            
+            # Рекомендации
+            if suggestions:
+                lines.append("**Рекомендации:**")
+                for suggestion in suggestions[:3]:
+                    lines.append(f"- {suggestion}")
+                lines.append("")
+            
+            lines.append("---")
             lines.append("")
-        
-        # Критические проблемы
-        if result.critical_issues:
-            lines.append("**Критические проблемы:**")
-            for issue in result.critical_issues[:5]:  # Максимум 5 проблем
-                file = issue.get("file", "unknown")
-                line = issue.get("line", "?")
-                issue_type = issue.get("type", "error")
-                message = issue.get("message", "")
-                fix = issue.get("fix", "")
-                
-                lines.append(f"- `{file}:{line}` ({issue_type}): {message}")
-                if fix:
-                    lines.append(f"  → Исправление: {fix}")
-            lines.append("")
-        
-        # Рекомендации
-        if result.suggestions:
-            lines.append("**Рекомендации:**")
-            for suggestion in result.suggestions[:3]:  # Максимум 3 рекомендации
-                lines.append(f"- {suggestion}")
         
         return "\n".join(lines)
