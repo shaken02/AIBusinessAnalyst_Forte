@@ -60,6 +60,7 @@ def render_plantuml_to_png(plantuml_code: str) -> Optional[bytes]:
         # Find Java
         java_path = None
         java_paths_to_check = [
+            '/opt/homebrew/opt/openjdk@21/bin/java',
             '/opt/homebrew/opt/openjdk@17/bin/java',
             '/opt/homebrew/opt/openjdk@11/bin/java',
             '/opt/homebrew/bin/java',
@@ -67,6 +68,8 @@ def render_plantuml_to_png(plantuml_code: str) -> Optional[bytes]:
             '/usr/local/bin/java',
             str(Path(os.environ.get("JAVA_HOME", "")) / "bin" / "java"),
             str(Path(os.environ.get("JAVA_HOME", "")) / "bin" / "java.exe"),
+            r'C:\Program Files\Java\jdk-21\bin\java.exe',
+            r'C:\Program Files\Eclipse Adoptium\jdk-21\bin\java.exe',
             r'C:\Program Files\Java\jdk-17\bin\java.exe',
             r'C:\Program Files\Eclipse Adoptium\jdk-17\bin\java.exe',
             r"C:\Program Files (x86)\Common Files\Oracle\Java\java8path\java.exe",

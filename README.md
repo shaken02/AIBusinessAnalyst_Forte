@@ -57,7 +57,8 @@ ai_ba_agent/
 ├── scenarios/                           # Тестовые сценарии для автозаполнения
 ├── docs/                                # Документация и примеры
 ├── requirements.txt                     # Python зависимости
-└── run.sh                               # Скрипт запуска приложения
+├── run_macos.sh                         # Скрипт запуска для macOS/Linux
+└── run_for_windows.sh                   # Скрипт запуска для Windows
 ```
 
 ##  Требования и установка
@@ -86,23 +87,23 @@ ai_ba_agent/
      - `qwen2.5:7b` — средний вариант (~4.7GB)
      - `llama3.1:8b` — популярная альтернатива
 
-3. **Java 17+** (ОБЯЗАТЕЛЬНО для рендеринга PlantUML диаграмм)
+3. **Java 21+** (ОБЯЗАТЕЛЬНО для рендеринга PlantUML диаграмм)
    - На macOS с Homebrew:
      ```bash
-     brew install openjdk@17
+     brew install openjdk@21
      ```
    - На Linux (Ubuntu/Debian):
      ```bash
-     sudo apt-get install openjdk-17-jdk
+     sudo apt-get install openjdk-21-jdk
      # Для решения проблемы с libharfbuzz (см. ошибку выше):
      sudo apt-get install libharfbuzz0b libfontconfig1
      # Или установите полный JRE:
-     sudo apt-get install openjdk-17-jre-headless
+     sudo apt-get install openjdk-21-jre-headless
      ```
    - На Windows:
-     - Скачайте OpenJDK 17+ с [adoptium.net](https://adoptium.net)
+     - Скачайте OpenJDK 21+ с [adoptium.net](https://adoptium.net)
      - Установите и добавьте в PATH
-     - Или установите через Chocolatey: `choco install openjdk17`
+     - Или установите через Chocolatey: `choco install openjdk21`
    - Проверить установку:
      ```bash
      java -version
@@ -149,9 +150,16 @@ ai_ba_agent/
 
 После установки зависимостей просто запустите:
 
+**На macOS/Linux:**
 ```bash
 cd AIBusinessAnalyst/ai_ba_agent
-./run.sh
+./run_macos.sh
+```
+
+**На Windows (через Git Bash или WSL):**
+```bash
+cd AIBusinessAnalyst/ai_ba_agent
+./run_for_windows.sh
 ```
 
 Скрипт автоматически найдет виртуальное окружение (в `venv` или `../AIForte`) и запустит приложение.
@@ -281,14 +289,14 @@ python -m streamlit run app/main.py --server.headless true --server.port 8501
 
 ### PlantUML не генерируется
 
-- **Проверьте Java**: `java -version` — должна быть версия 17+
+- **Проверьте Java**: `java -version` — должна быть версия 21+
 - **Проверьте plantuml.jar**: Должен быть в `libs/plantuml.jar`
 - **Проверьте логи**: В консоли могут быть ошибки Java
 - **На Linux**: Если ошибка `libharfbuzz.so.0: cannot open shared object file`, установите:
   ```bash
   sudo apt-get install libharfbuzz0b libfontconfig1
   # Или
-  sudo apt-get install openjdk-17-jre-headless
+  sudo apt-get install openjdk-21-jre-headless
   ```
 
 ### Диаграммы пустые или недетальные
