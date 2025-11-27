@@ -61,3 +61,29 @@ def store_user_password(user_id, password):
     print(f"Stored password for user {user_id}: {password}")
     return True
 
+
+def render_user_content(user_input):
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: XSS уязвимость - нет экранирования пользовательского ввода
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: прямой вывод без санитизации
+    html_content = f"<div>{user_input}</div>"
+    return html_content
+
+
+def decrypt_data(encrypted_data):
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: жестко закодированный ключ шифрования
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: ключ должен быть в переменных окружения
+    encryption_key = "hardcoded_secret_key_12345"
+    
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: использование небезопасного алгоритма шифрования
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: нет проверки целостности данных
+    decrypted = encrypted_data  # Упрощенная логика для примера
+    return decrypted
+
+
+def execute_user_code(code_string):
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: выполнение произвольного кода пользователя
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: нет валидации входных данных
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: может привести к RCE (Remote Code Execution)
+    result = eval(code_string)
+    return result
+
