@@ -40,8 +40,8 @@ else
   echo "✅ Зависимости установлены"
 fi
 
-# Устанавливаем PYTHONPATH
-export PYTHONPATH="${SCRIPT_DIR}:${PYTHONPATH:-}"
+# Устанавливаем PYTHONPATH (как в start.sh - корень проекта)
+export PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}"
 
 # Переходим в директорию backend
 cd "${SCRIPT_DIR}"
@@ -54,6 +54,6 @@ echo "Для остановки нажмите Ctrl+C"
 echo "=========================================="
 echo ""
 
-# Запускаем сервер через uvicorn
-exec uvicorn code_review_backend.main:app --host 0.0.0.0 --port 8001 --reload
+# Запускаем сервер через uvicorn (как в start.sh - через python main.py)
+exec python main.py
 
