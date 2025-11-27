@@ -48,3 +48,16 @@ def validate_api_request(token):
         return True
     return False
 
+
+def store_user_password(user_id, password):
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: сохранение пароля в открытом виде
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: нет хеширования
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: сохранение в небезопасное место
+    file_path = f"/tmp/user_{user_id}_password.txt"
+    with open(file_path, "w") as f:
+        f.write(f"User {user_id} password: {password}")
+    
+    # КРИТИЧЕСКАЯ ПРОБЛЕМА: логирование пароля
+    print(f"Stored password for user {user_id}: {password}")
+    return True
+

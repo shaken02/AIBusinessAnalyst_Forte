@@ -40,3 +40,16 @@ def format_currency(value):
     # Проблема: нет проверки типа
     return f"${value}"
 
+
+def process_order(order_id, items):
+    # Новая функция с проблемами стиля
+    # Проблема: нет type hints
+    # Проблема: нет docstring
+    # Проблема: магические числа
+    total = 0
+    for item in items:
+        total += item['price'] * item['quantity']
+    # Проблема: жестко закодированная скидка
+    discount = total * 0.1
+    return total - discount
+
