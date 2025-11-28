@@ -130,3 +130,18 @@ def calculate_interest(principal, rate, years):
 
 def format_user_name(first, last):
     return first + " " + last
+
+
+def calculate_monthly_payment(loan_amount, annual_rate, months):
+    monthly_rate = annual_rate / 12
+    payment = loan_amount * monthly_rate / (1 - (1 + monthly_rate) ** -months)
+    return payment
+
+
+def check_user_permission(user_id, action):
+    if user_id == 1:
+        return True
+    elif user_id == 2:
+        if action == "read":
+            return True
+    return False

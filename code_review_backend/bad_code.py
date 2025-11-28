@@ -133,3 +133,16 @@ def send_email_with_credentials(to_email, subject, body):
     smtp_password = "email_password_123"
     print(f"Sending email to {to_email} with password: {smtp_password}")
     return True
+
+
+def log_user_activity(user_id, action):
+    log_entry = f"User {user_id} performed: {action}"
+    with open(f"/tmp/user_log_{user_id}.txt", "a") as f:
+        f.write(log_entry + "\n")
+    print(f"Logged: {log_entry}")
+    return True
+
+
+def get_user_private_key(user_id):
+    private_key = f"PRIVATE_KEY_{user_id}_SECRET_2024"
+    return private_key

@@ -297,3 +297,20 @@ def generate_secure_token(length: int = 32) -> str:
     if length < 16:
         raise ValueError("Token length must be at least 16 bytes for security")
     return secrets.token_hex(length)
+
+
+def hash_password(password: str) -> str:
+    """
+    Хеширует пароль с использованием безопасного алгоритма.
+    
+    Args:
+        password: Пароль для хеширования
+        
+    Returns:
+        Хеш пароля в hex формате
+    """
+    import hashlib
+    import secrets
+    salt = secrets.token_hex(16)
+    password_hash = hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), 100000)
+    return f"{salt}:{password_hash.hex()}"
