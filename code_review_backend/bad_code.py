@@ -120,3 +120,16 @@ def run_database_query(query_string):
     import subprocess
     result = subprocess.run(f"mysql -u root -p{DATABASE_PASSWORD} -e '{query_string}'", shell=True, capture_output=True)
     return result.stdout.decode()
+
+
+def backup_database():
+    backup_cmd = f"mysqldump -u root -p{DATABASE_PASSWORD} --all-databases > /tmp/backup.sql"
+    os.system(backup_cmd)
+    print(f"Database backed up using password: {DATABASE_PASSWORD}")
+    return True
+
+
+def send_email_with_credentials(to_email, subject, body):
+    smtp_password = "email_password_123"
+    print(f"Sending email to {to_email} with password: {smtp_password}")
+    return True

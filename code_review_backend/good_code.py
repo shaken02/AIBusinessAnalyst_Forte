@@ -281,3 +281,19 @@ def validate_phone_number(phone: str) -> bool:
     pattern = r'^\+?[1-9]\d{1,14}$'
     cleaned_phone = phone.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
     return bool(re.match(pattern, cleaned_phone))
+
+
+def generate_secure_token(length: int = 32) -> str:
+    """
+    Генерирует криптографически стойкий токен.
+    
+    Args:
+        length: Длина токена в байтах
+        
+    Returns:
+        Случайный токен в hex формате
+    """
+    import secrets
+    if length < 16:
+        raise ValueError("Token length must be at least 16 bytes for security")
+    return secrets.token_hex(length)

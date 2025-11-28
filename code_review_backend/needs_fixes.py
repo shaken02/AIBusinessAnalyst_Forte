@@ -119,3 +119,14 @@ def convert_temperature(temp, unit):
     elif unit == "C":
         return (temp - 32) * 5 / 9
     return temp
+
+
+def calculate_interest(principal, rate, years):
+    result = principal
+    for i in range(years):
+        result = result * (1 + rate)
+    return result
+
+
+def format_user_name(first, last):
+    return first + " " + last
