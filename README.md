@@ -58,7 +58,8 @@ ai_ba_agent/
 ├── docs/                                # Документация и примеры
 ├── requirements.txt                     # Python зависимости
 ├── run_macos.sh                         # Скрипт запуска для macOS/Linux
-└── run_for_windows.sh                   # Скрипт запуска для Windows
+├── run_for_windows.sh                   # Скрипт запуска для Windows (Git Bash/WSL)
+└── run_for_windows.bat                  # Скрипт запуска для Windows (CMD/PowerShell)
 ```
 
 ##  Требования и установка
@@ -171,6 +172,12 @@ cd AIBusinessAnalyst/ai_ba_agent
 ```bash
 cd AIBusinessAnalyst/ai_ba_agent
 ./run_for_windows.sh
+```
+
+**На Windows (CMD или PowerShell):**
+```cmd
+cd AIBusinessAnalyst\ai_ba_agent
+.\run_for_windows.bat
 ```
 
 Скрипт автоматически найдет виртуальное окружение (в `venv` или `../AIForte`) и запустит приложение.
